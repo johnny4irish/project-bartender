@@ -31,11 +31,11 @@ module.exports = async (req, res, next) => {
     
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
     console.log('Auth Middleware: Токен декодирован:', decoded);
-    console.log('Auth Middleware: ID пользователя из токена:', decoded.id);
+    console.log('Auth Middleware: ID пользователя из токена:', decoded.userId);
     
     // Находим пользователя
-    console.log('Auth Middleware: Ищем пользователя по ID:', decoded.id);
-    const user = await User.findById(decoded.id);
+    console.log('Auth Middleware: Ищем пользователя по ID:', decoded.userId);
+    const user = await User.findById(decoded.userId);
     
     if (!user) {
       console.log('Auth Middleware: Пользователь не найден в базе данных');
