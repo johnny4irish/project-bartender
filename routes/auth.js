@@ -123,9 +123,26 @@ router.post('/login', [
       hasComparePassword: typeof user.comparePassword === 'function'
     });
 
+    // Check password presence and validity
+    if (!password || typeof password !== 'string' || password.length < 1) {
+      console.log('❌ Password is missing or invalid in request for user:', email);
+      return res.status(400).json({ message: 'Invalid credentials' });
+    }
+
+    if (!user.password || typeof user.password !== 'string') {
+      console.log('❌ Stored password is missing or invalid for user:', email);
+      return res.status(400).json({ message: 'Invalid credentials' });
+    }
+
     // Check password
     console.log('🔐 Checking password...');
-    const isMatch = await user.comparePassword(password);
+    let isMatch = false;
+    try {
+      isMatch = await user.comparePassword(password);
+    } catch (cmpErr) {
+      console.log('❌ Error during password comparison:', cmpErr.message);
+      return res.status(400).json({ message: 'Invalid credentials' });
+    }
     console.log('🔐 Password check result:', isMatch);
     
     if (!isMatch) {

@@ -86,7 +86,17 @@ userSchema.pre('save', async function(next) {
 
 // Compare password method
 userSchema.methods.comparePassword = async function(candidatePassword) {
-  return await bcrypt.compare(candidatePassword, this.password);
+  try {
+    if (!candidatePassword || typeof candidatePassword !== 'string') {
+      return false;
+    }
+    if (!this.password || typeof this.password !== 'string') {
+      return false;
+    }
+    return await bcrypt.compare(candidatePassword, this.password);
+  } catch (error) {
+    return false;
+  }
 };
 
 // Виртуальные поля для популяции
