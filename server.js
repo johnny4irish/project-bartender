@@ -6,6 +6,7 @@ const { connectDB } = require('./config/db')
 // Load env vars
 dotenv.config()
 
+// Force Railway redeploy - Updated CORS configuration
 // Connect to database
 connectDB()
 
@@ -16,7 +17,7 @@ app.use(express.json({ extended: false }))
 
 // CORS middleware
 app.use(cors({
-  origin: process.env.CLIENT_URL || 'http://localhost:3000',
+  origin: process.env.CORS_ORIGIN || 'http://localhost:3000',
   credentials: true
 }))
 
