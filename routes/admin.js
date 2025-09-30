@@ -1,5 +1,6 @@
 const express = require('express')
 const mongoose = require('mongoose')
+const bcrypt = require('bcryptjs')
 const router = express.Router()
 const auth = require('../middleware/auth')
 const { getModel } = require('../models/ModelFactory')
@@ -337,6 +338,43 @@ router.get('/users', [auth, adminAuth], async (req, res) => {
   } catch (error) {
     console.error(error.message)
     res.status(500).json({ error: 'Ошибка сервера' })
+  }
+})
+
+// @route   POST /api/admin/users/reset-password
+// @desc    Сбросить пароль пользователя по email
+// @access  Private (Admin)
+router.post('/users/reset-password', [auth, adminAuth], async (req, res) => {
+  try {
+    const { email, newPassword } = req.body
+
+    console.log('Admin: запрос на сброс пароля', { email, hasNewPassword: !!newPassword })
+
+    if (!email || typeof email !== 'string') {
+      return res.status(400).json({ msg: 'Требуется корректный email' })
+    }
+    if (!newPassword || typeof newPassword !== 'string' || newPassword.length < 6) {
+      return res.status(400).json({ msg: 'Пароль обязателен и должен быть не менее 6 символов' })
+    }
+
+    const user = await User.findOne({ email: email.toLowerCase().trim() })
+    if (!user) {
+      console.log('Admin: пользователь для сброса пароля не найден', email)
+      return res.status(404).json({ msg: 'Пользователь не найден' })
+    }
+
+    const salt = await bcrypt.genSalt(10)
+    const hashed = await bcrypt.hash(newPassword, salt)
+
+    user.password = hashed
+    user.updatedAt = new Date()
+    await user.save()
+
+    console.log('Admin: пароль пользователя сброшен', { userId: user._id, email: user.email })
+    res.json({ msg: 'Пароль успешно обновлён', user: { id: user._id, email: user.email } })
+  } catch (error) {
+    console.error('Admin: ошибка при сбросе пароля', error.message)
+    res.status(500).json({ msg: 'Ошибка сервера' })
   }
 })
 
