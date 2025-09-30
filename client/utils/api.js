@@ -55,6 +55,7 @@ export const adminAPI = {
 
 // Sales API calls
 export const salesAPI = {
+  stats: () => apiCall('/api/sales/stats'),
   create: (saleData) => apiCall('/api/sales', {
     method: 'POST',
     body: JSON.stringify(saleData)
