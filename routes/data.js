@@ -1,9 +1,11 @@
 const express = require('express')
 const router = express.Router()
-const City = require('../models/City')
-const Bar = require('../models/Bar')
-const Role = require('../models/Role')
 const { getModel } = require('../models/ModelFactory')
+
+// Get models from ModelFactory
+const City = getModel('City')
+const Bar = getModel('Bar')
+const Role = getModel('Role')
 const Product = getModel('Product')
 
 // @route   GET api/data/cities
@@ -11,7 +13,10 @@ const Product = getModel('Product')
 // @access  Public
 router.get('/cities', async (req, res) => {
   try {
+    console.log('Cities endpoint called - fetching cities...')
     const cities = await City.find().select('_id name')
+    console.log('Cities found:', cities.length)
+    console.log('Cities data:', JSON.stringify(cities, null, 2))
     res.json(cities)
   } catch (err) {
     console.error('Error fetching cities:', err.message)

@@ -7,7 +7,7 @@ const Prize = getModel('Prize')
 
 // Get the bartender role ObjectId
 const getBartenderRoleId = async () => {
-  const Role = require('../models/Role');
+  const Role = getModel('Role');
   const bartenderRole = await Role.findOne({ name: 'test_bartender' });
   return bartenderRole ? bartenderRole._id : null;
 };
@@ -17,9 +17,6 @@ const getBartenderRoleId = async () => {
 // @access  Public
 router.get('/', async (req, res) => {
   try {
-    // Get the bartender role ObjectId
-    const bartenderRoleId = await getBartenderRoleId();
-    
     // Инициализируем значения по умолчанию
     let totalUsers = 0;
     let activeUsers = 0;
@@ -27,28 +24,26 @@ router.get('/', async (req, res) => {
     let totalPrizes = 0;
 
     try {
-      // Подсчет общего количества пользователей (барменов)
-      totalUsers = bartenderRoleId ? await User.countDocuments({ role: bartenderRoleId }) : 0;
+      // Подсчет общего количества пользователей (всех пользователей)
+      totalUsers = await User.countDocuments({});
     } catch (error) {
       console.error('Ошибка подсчета пользователей:', error.message);
     }
     
     try {
       // Подсчет активных пользователей (пользователи с баллами > 0)
-      activeUsers = bartenderRoleId ? await User.countDocuments({ 
-        role: bartenderRoleId, 
+      activeUsers = await User.countDocuments({ 
         points: { $gt: 0 } 
-      }) : 0;
+      });
     } catch (error) {
       console.error('Ошибка подсчета активных пользователей:', error.message);
     }
     
     try {
       // Подсчет общего количества баллов всех пользователей
-      const totalPointsResult = bartenderRoleId ? await User.aggregate([
-        { $match: { role: bartenderRoleId } },
+      const totalPointsResult = await User.aggregate([
         { $group: { _id: null, total: { $sum: '$points' } } }
-      ]) : [];
+      ]);
       totalPoints = totalPointsResult.length > 0 ? totalPointsResult[0].total : 0;
     } catch (error) {
       console.error('Ошибка подсчета баллов:', error.message);
