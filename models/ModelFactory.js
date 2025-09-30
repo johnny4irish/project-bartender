@@ -90,6 +90,11 @@ const MongoPrize = require('./Prize');
 const MongoProduct = require('./Product');
 const MongoCart = require('./Cart');
 const MongoOrder = require('./Order');
+const MongoCity = require('./City');
+const MongoCategory = require('./Category');
+const MongoRole = require('./Role');
+const MongoBrand = require('./Brand');
+const MongoBar = require('./Bar');
 
 // Create singleton instance
 const modelFactory = new ModelFactory();
@@ -102,6 +107,11 @@ modelFactory.register('Prize', MongoPrize);
 modelFactory.register('Product', MongoProduct);
 modelFactory.register('Cart', MongoCart);
 modelFactory.register('Order', MongoOrder);
+modelFactory.register('City', MongoCity);
+modelFactory.register('Category', MongoCategory);
+modelFactory.register('Role', MongoRole);
+modelFactory.register('Brand', MongoBrand);
+modelFactory.register('Bar', MongoBar);
 
 // Export the factory and convenience methods
 module.exports = {
@@ -115,5 +125,10 @@ module.exports = {
   Prize: () => modelFactory.getModel('Prize'),
   Product: () => modelFactory.getModel('Product'),
   Cart: () => modelFactory.getModel('Cart'),
-  Order: () => modelFactory.getModel('Order')
+  Order: () => modelFactory.getModel('Order'),
+  City: () => modelFactory.getModel('City'),
+  Category: () => modelFactory.getModel('Category'),
+  Role: () => modelFactory.getModel('Role'),
+  Brand: () => modelFactory.getModel('Brand'),
+  Bar: () => modelFactory.getModel('Bar')
 };
