@@ -363,10 +363,8 @@ router.post('/users/reset-password', [auth, adminAuth], async (req, res) => {
       return res.status(404).json({ msg: 'Пользователь не найден' })
     }
 
-    const salt = await bcrypt.genSalt(10)
-    const hashed = await bcrypt.hash(newPassword, salt)
-
-    user.password = hashed
+    // Assign plaintext and rely on User pre-save hook to hash once
+    user.password = newPassword
     user.updatedAt = new Date()
     await user.save()
 
