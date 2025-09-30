@@ -3,7 +3,7 @@ import axios from 'axios'
 import { toast } from 'react-toastify'
 
 // Настройка базового URL для axios
-axios.defaults.baseURL = process.env.NODE_ENV === 'production' ? '' : 'http://localhost:5000'
+axios.defaults.baseURL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'
 
 const AuthContext = createContext()
 

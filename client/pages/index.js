@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { API_BASE_URL } from '../utils/api';
 import { useRouter } from 'next/router';
 
 export default function Home() {
@@ -21,7 +22,7 @@ export default function Home() {
 
   const fetchUserData = async (token) => {
     try {
-      const response = await fetch('http://localhost:5000/api/auth/me', {
+      const response = await fetch(`${API_BASE_URL}/api/auth/me`, {
         headers: { 'x-auth-token': token }
       });
       if (response.ok) {
@@ -35,7 +36,7 @@ export default function Home() {
 
   const fetchStats = async () => {
     try {
-      const response = await fetch('http://localhost:5000/api/stats');
+      const response = await fetch(`${API_BASE_URL}/api/stats`);
       if (response.ok) {
         const statsData = await response.json();
         setStats(statsData);
