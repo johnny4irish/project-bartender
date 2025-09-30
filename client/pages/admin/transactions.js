@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import Link from 'next/link';
 import Button from '../../components/ui/Button';
+import { authAPI, adminAPI } from '../../utils/api';
 
 const AdminTransactions = () => {
   const router = useRouter();

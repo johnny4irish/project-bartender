@@ -1,11 +1,12 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/router'
-import { useAuth } from '../../context/AuthContext'
+import { authAPI } from '../../utils/api'
 import axios from 'axios'
 import { toast } from 'react-toastify'
 
 const OrderConfirmation = () => {
-  const { user, loading } = useAuth()
+  const [user, setUser] = useState(null)
+  const [loading, setLoading] = useState(true)
   const router = useRouter()
   const { orderId } = router.query
   const [order, setOrder] = useState(null)
@@ -15,10 +16,29 @@ const OrderConfirmation = () => {
   const [isUpdating, setIsUpdating] = useState(false)
 
   useEffect(() => {
-    if (!loading && !user) {
-      router.push('/login')
+    const loadData = async () => {
+      try {
+        const token = localStorage.getItem('token')
+        if (!token) {
+          router.push('/login')
+          return
+        }
+
+        // Проверяем аутентификацию
+        const userData = await authAPI.me()
+        setUser(userData)
+        
+      } catch (error) {
+        console.error('Ошибка при загрузке данных:', error)
+        localStorage.removeItem('token')
+        router.push('/login')
+      } finally {
+        setLoading(false)
+      }
     }
-  }, [user, loading, router])
+
+    loadData()
+  }, [router])
 
   useEffect(() => {
     if (orderId && user) {

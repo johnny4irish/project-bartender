@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import Link from 'next/link';
 import Button from '../../components/ui/Button';
+import { authAPI, adminAPI } from '../../utils/api';
 
 const AdminDashboard = () => {
   const router = useRouter();
@@ -34,19 +35,8 @@ const AdminDashboard = () => {
 
   const fetchCurrentUser = async () => {
     try {
-      const token = localStorage.getItem('token');
-      const response = await fetch('/api/auth/me', {
-        headers: {
-          'x-auth-token': token
-        }
-      });
-
-      if (response.ok) {
-        const userData = await response.json();
-        setUser(userData);
-      } else {
-        router.push('/admin/login');
-      }
+      const userData = await authAPI.me();
+      setUser(userData);
     } catch (error) {
       console.error('Ошибка при получении данных пользователя:', error);
       router.push('/admin/login');
@@ -55,19 +45,8 @@ const AdminDashboard = () => {
 
   const fetchDashboardStats = async () => {
     try {
-      const token = localStorage.getItem('token');
-      const response = await fetch('/api/admin/dashboard', {
-        headers: {
-          'x-auth-token': token
-        }
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        setStats(data);
-      } else {
-        setError('Ошибка при загрузке статистики');
-      }
+      const data = await adminAPI.dashboard();
+      setStats(data);
     } catch (error) {
       console.error('Ошибка при получении статистики:', error);
       setError('Ошибка при загрузке статистики');

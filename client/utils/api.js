@@ -26,3 +26,37 @@ export const apiCall = async (endpoint, options = {}) => {
   
   return response.json();
 };
+
+// Auth API calls
+export const authAPI = {
+  me: () => apiCall('/api/auth/me'),
+  login: (credentials) => apiCall('/api/auth/login', {
+    method: 'POST',
+    body: JSON.stringify(credentials)
+  }),
+  register: (userData) => apiCall('/api/auth/register', {
+    method: 'POST',
+    body: JSON.stringify(userData)
+  })
+};
+
+// Admin API calls
+export const adminAPI = {
+  dashboard: () => apiCall('/api/admin/dashboard'),
+  users: () => apiCall('/api/admin/users'),
+  prizes: () => apiCall('/api/admin/prizes'),
+  sales: () => apiCall('/api/admin/sales'),
+  transactions: () => apiCall('/api/admin/transactions'),
+  createPrize: (prizeData) => apiCall('/api/admin/prizes', {
+    method: 'POST',
+    body: JSON.stringify(prizeData)
+  })
+};
+
+// Sales API calls
+export const salesAPI = {
+  create: (saleData) => apiCall('/api/sales', {
+    method: 'POST',
+    body: JSON.stringify(saleData)
+  })
+};

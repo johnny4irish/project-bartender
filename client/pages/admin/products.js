@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import Link from 'next/link';
 import Button from '../../components/ui/Button';
+import { authAPI } from '../../utils/api';
 
 const AdminProducts = () => {
   const router = useRouter();
@@ -59,19 +60,8 @@ const AdminProducts = () => {
 
   const fetchCurrentUser = async () => {
     try {
-      const token = localStorage.getItem('token');
-      const response = await fetch('/api/auth/me', {
-        headers: {
-          'x-auth-token': token
-        }
-      });
-
-      if (response.ok) {
-        const userData = await response.json();
-        setUser(userData);
-      } else {
-        router.push('/login');
-      }
+      const userData = await authAPI.me();
+      setUser(userData);
     } catch (error) {
       console.error('Ошибка при получении данных пользователя:', error);
       router.push('/login');

@@ -1,6 +1,6 @@
-import { useState, useEffect } from 'react'
-import { useRouter } from 'next/router'
-import axios from 'axios'
+import { useState, useEffect } from 'react';
+import { useRouter } from 'next/router';
+import { authAPI } from '../../utils/api';
 
 export default function Cart() {
   const [cart, setCart] = useState(null)
@@ -9,15 +9,29 @@ export default function Cart() {
   const router = useRouter()
 
   useEffect(() => {
-    const token = localStorage.getItem('token')
-    if (!token) {
-      router.push('/login')
-      return
+    const loadData = async () => {
+      try {
+        const token = localStorage.getItem('token')
+        if (!token) {
+          router.push('/login')
+          return
+        }
+
+        // Проверяем аутентификацию
+        const userData = await authAPI.me()
+        setUser(userData)
+        
+      } catch (error) {
+        console.error('Ошибка при загрузке данных:', error)
+        localStorage.removeItem('token')
+        router.push('/login')
+      } finally {
+        setLoading(false)
+      }
     }
 
-    fetchUserData()
-    fetchCart()
-  }, [])
+    loadData()
+  }, [router])
 
   const fetchUserData = async () => {
     try {

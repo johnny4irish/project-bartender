@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import Link from 'next/link';
 import Button from '../components/ui/Button';
+import { authAPI, salesAPI } from '../utils/api';
 
 const Dashboard = () => {
   const router = useRouter();
@@ -33,62 +34,43 @@ const Dashboard = () => {
       setIsLoading(true);
       
       // Загружаем данные пользователя
-      const userResponse = await fetch('http://localhost:3000/api/auth/me', {
-        headers: { 
-          'x-auth-token': token,
-          'Content-Type': 'application/json'
-        }
+      const userData = await authAPI.me();
+      setUser(userData);
+      
+      // Загружаем статистику пользователя
+      const statsData = await salesAPI.stats();
+      console.log('Stats data received:', statsData);
+      
+      // Обновляем статистику с правильными данными
+      setStats({
+        totalSales: statsData.totalSales ?? 0,
+        totalPoints: statsData.totalPoints ?? 0,
+        totalAmount: statsData.totalAmount ?? 0,
+        approvedAmount: statsData.approvedAmount ?? 0,
+        pendingAmount: statsData.pendingAmount ?? 0,
+        rejectedAmount: statsData.rejectedAmount ?? 0,
+        monthlyRank: statsData.monthlyRank ?? 0,
+        recentSales: statsData.recentSales ?? []
       });
-
-      if (userResponse.ok) {
-        const userData = await userResponse.json();
-        setUser(userData);
-        
-        // Загружаем статистику пользователя
-        const statsResponse = await fetch('http://localhost:3000/api/sales/stats', {
-          headers: { 
-            'x-auth-token': token,
-            'Content-Type': 'application/json'
-          }
+    } catch (error) {
+      console.error('Ошибка при загрузке данных:', error);
+      
+      // Если статистика недоступна, используем базовые данные
+      if (user) {
+        setStats({
+          totalSales: 0,
+          totalPoints: user.points || 0,
+          totalAmount: user.totalAmount || 0,
+          approvedAmount: 0,
+          pendingAmount: 0,
+          rejectedAmount: 0,
+          monthlyRank: 0,
+          recentSales: []
         });
-
-        if (statsResponse.ok) {
-          const statsData = await statsResponse.json();
-          console.log('Stats data received:', statsData);
-          
-          // Обновляем статистику с правильными данными
-          setStats({
-            totalSales: statsData.totalSales ?? 0,
-            totalPoints: statsData.totalPoints ?? 0,
-            totalAmount: statsData.totalAmount ?? 0,
-            approvedAmount: statsData.approvedAmount ?? 0,
-            pendingAmount: statsData.pendingAmount ?? 0,
-            rejectedAmount: statsData.rejectedAmount ?? 0,
-            monthlyRank: statsData.monthlyRank ?? 0,
-            recentSales: statsData.recentSales ?? []
-          });
-        } else {
-          // Если статистика недоступна, используем базовые данные
-          setStats({
-            totalSales: 0,
-            totalPoints: userData.points || 0,
-            totalAmount: userData.totalAmount || 0,
-            approvedAmount: 0,
-            pendingAmount: 0,
-            rejectedAmount: 0,
-            monthlyRank: 0,
-            recentSales: []
-          });
-        }
       } else {
-        console.error('Ошибка загрузки данных пользователя');
         localStorage.removeItem('token');
         router.push('/login');
       }
-    } catch (error) {
-      console.error('Ошибка при загрузке данных:', error);
-      localStorage.removeItem('token');
-      router.push('/login');
     } finally {
       setIsLoading(false);
     }

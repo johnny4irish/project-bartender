@@ -3,6 +3,7 @@ import { useRouter } from 'next/router'
 import { useAuth } from '../../context/AuthContext'
 import axios from 'axios'
 import { toast } from 'react-toastify'
+import { authAPI } from '../../utils/api'
 
 const Orders = () => {
   const { user, loading } = useAuth()
