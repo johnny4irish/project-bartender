@@ -151,10 +151,9 @@ router.post('/login', [
     }
 
     console.log('✅ Password valid, updating lastLogin...');
-    // Update last login
-    user.lastLogin = new Date();
-    await user.save();
-    console.log('✅ LastLogin updated');
+    // Update last login without triggering full validation
+    await User.updateOne({ _id: user._id }, { $set: { lastLogin: new Date() } });
+    console.log('✅ LastLogin updated via updateOne');
 
     console.log('🎯 Creating JWT token...');
     // Create JWT token
@@ -174,7 +173,7 @@ router.post('/login', [
       (err, token) => {
         if (err) {
           console.error('❌ JWT signing error:', err);
-          throw err;
+          return res.status(500).json({ message: 'Server error' });
         }
         
         console.log('✅ JWT token created successfully');
