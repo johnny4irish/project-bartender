@@ -1,9 +1,9 @@
-[
-  {
-    "_id": "68dbb471e074fbba443a541d",
+{
+  "c9a491d5-dc08-4617-b11f-3ee9d7a5266d": {
+    "_id": "c9a491d5-dc08-4617-b11f-3ee9d7a5266d",
     "name": "Джин Gintl",
-    "brand": "68dbb40fdee29e54c6880e01",
-    "category": "68dbb40fdee29e54c6880e04",
+    "brand": "Gintl",
+    "category": "spirits",
     "pointsCalculationType": "per_portion",
     "pointsPerRuble": 0.06666666666666667,
     "pointsPerPortion": 10,
@@ -16,15 +16,13 @@
     "isActive": true,
     "description": "",
     "createdAt": "2025-09-29T22:03:51.479Z",
-    "updatedAt": "2025-09-29T22:03:51.479Z",
-    "bottlePrice": 1000,
-    "inStock": true
+    "updatedAt": "2025-09-29T22:03:51.479Z"
   },
-  {
-    "_id": "68dbb4719e512564eb0ad170",
+  "57de071a-2a78-4665-9eec-c38ac9c368b9": {
+    "_id": "57de071a-2a78-4665-9eec-c38ac9c368b9",
     "name": "Джин Gintl Pink",
-    "brand": "68dbb40fdee29e54c6880e01",
-    "category": "68dbb40fdee29e54c6880e04",
+    "brand": "Gintl",
+    "category": "spirits",
     "pointsCalculationType": "per_portion",
     "pointsPerRuble": 0.06666666666666667,
     "pointsPerPortion": 10,
@@ -37,28 +35,24 @@
     "isActive": true,
     "description": "",
     "createdAt": "2025-09-29T22:04:31.109Z",
-    "updatedAt": "2025-09-29T22:04:31.109Z",
-    "bottlePrice": 1000,
-    "inStock": true
+    "updatedAt": "2025-09-29T22:04:31.109Z"
   },
-  {
-    "_id": "68dbb4711c18776ecf84f716",
+  "17591843310865sxbrloj0": {
+    "_id": "17591843310865sxbrloj0",
     "name": "Test Product",
-    "brand": "68dbb40fdee29e54c6880e01",
-    "category": "68dbb40fdee29e54c6880e04",
-    "pointsCalculationType": "per_ruble",
+    "brand": "Test Brand",
+    "category": "test",
+    "pointsCalculationType": "fixed",
     "pointsPerRuble": 1,
     "pointsPerPortion": 0,
-    "portionSizeGrams": 40,
+    "portionSizeGrams": 0,
     "wholesalePrice": 10,
-    "packageVolume": 500,
+    "packageVolume": 0,
     "alcoholContent": 0,
     "minPrice": 0,
     "isActive": true,
     "description": "",
     "createdAt": "2025-09-29T22:18:51.086Z",
-    "updatedAt": "2025-09-29T22:18:51.086Z",
-    "bottlePrice": 1000,
-    "inStock": true
+    "updatedAt": "2025-09-29T22:18:51.086Z"
   }
-]
+}

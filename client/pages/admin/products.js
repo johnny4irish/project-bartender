@@ -324,179 +324,259 @@ const AdminProducts = () => {
       {/* Header */}
       <header className="bg-white border-b border-gray-200 sticky top-0 z-50 shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center py-4">
-            <div className="flex items-center space-x-4">
-              <h1 className="text-xl font-bold text-gray-900">Управление продуктами</h1>
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center py-4 space-y-4 sm:space-y-0">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center space-y-2 sm:space-y-0 sm:space-x-4">
               <Link href="/admin" className="text-gray-600 hover:text-gray-900 text-sm">
-                ← К админ-панели
+                ← Админ-панель
               </Link>
+              <h1 className="text-xl font-bold text-gray-900">Управление продуктами</h1>
             </div>
-            <div className="flex items-center space-x-4">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center space-y-2 sm:space-y-0 sm:space-x-4">
               <div className="hidden md:block text-right">
                 <p className="text-gray-900 font-medium">Привет, {user.name}!</p>
                 <p className="text-gray-600 text-sm">
                   {(() => {
-                    const userRole = typeof user.role === 'string' ? user.role : user.role?.name;
-                    return userRole === 'admin' ? 'Администратор' : 'Представитель бренда';
+                    const roleMap = {
+                      'admin': 'Администратор',
+                      'brand_rep': 'Представитель бренда',
+                      'bartender': 'Бармен'
+                    };
+                    return roleMap[user.role?.name] || user.role?.name || 'Пользователь';
                   })()}
                 </p>
               </div>
-              <Button variant="secondary" size="sm" onClick={() => {
-                localStorage.removeItem('token');
-                router.push('/login');
-              }}>
+              <button
+                onClick={handleLogout}
+                className="text-gray-600 hover:text-gray-900 text-sm"
+              >
                 Выйти
-              </Button>
+              </button>
             </div>
           </div>
         </div>
       </header>
 
-      {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {error && (
-          <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg">
-            <p className="text-red-800">{error}</p>
-          </div>
-        )}
-
-        {/* Controls */}
-        <div className="mb-6 flex flex-col sm:flex-row gap-4 justify-between">
+        {/* Filters */}
+        <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-6 mb-8">
           <div className="flex flex-col sm:flex-row gap-4">
-            <input
-              type="text"
-              placeholder="Поиск по названию или бренду..."
-              value={filters.search}
-              onChange={(e) => setFilters({ ...filters, search: e.target.value })}
-              className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            />
-            <select
-              value={filters.category}
-              onChange={(e) => setFilters({ ...filters, category: e.target.value })}
-              className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            >
-              <option value="">Все категории</option>
-              {categories.map(cat => (
-                <option key={cat.value} value={cat.value}>{cat.label}</option>
-              ))}
-            </select>
-          </div>
-          <div className="flex gap-2">
-            <Button onClick={() => setShowModal(true)}>
-              Добавить продукт
-            </Button>
+            <div className="flex-1">
+              <label htmlFor="search" className="block text-sm font-medium text-gray-700 mb-2">
+                Поиск по названию или бренду
+              </label>
+              <input
+                type="text"
+                id="search"
+                value={filters.search}
+                onChange={(e) => setFilters({ ...filters, search: e.target.value })}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                placeholder="Введите название или бренд..."
+              />
+            </div>
+            <div className="flex-1">
+              <label htmlFor="category" className="block text-sm font-medium text-gray-700 mb-2">
+                Категория
+              </label>
+              <select
+                id="category"
+                value={filters.category}
+                onChange={(e) => setFilters({ ...filters, category: e.target.value })}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+              >
+                <option value="">Все категории</option>
+                {categories.map(cat => (
+                  <option key={cat.value} value={cat.value}>{cat.label}</option>
+                ))}
+              </select>
+            </div>
+            <div className="flex items-end">
+              <Button
+                onClick={() => setShowModal(true)}
+                className="w-full sm:w-auto"
+              >
+                Добавить продукт
+              </Button>
+            </div>
           </div>
         </div>
 
         {/* Products Table */}
-        <div className="bg-white rounded-lg shadow overflow-hidden">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Продукт
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Категория
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Система баллов
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Тип расчета
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Статус
-                </th>
-                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Действия
-                </th>
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {products.map((product) => (
-                <tr key={product._id}>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div>
-                      <div className="text-sm font-medium text-gray-900">{product.name}</div>
-                      <div className="text-sm text-gray-500">{product.brand}</div>
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span className="text-sm text-gray-900">
-                      {categories.find(cat => cat.value === product.category)?.label || product.category}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm text-gray-900">
-                      {product.pointsCalculationType === 'per_ruble' && (
-                        <div>
-                          <div className="font-medium">{product.pointsPerRuble.toFixed(4)} за рубль</div>
-                        </div>
-                      )}
-                      {product.pointsCalculationType === 'per_portion' && (
-                        <div>
-                          <div className="font-medium">{product.pointsPerPortion} за порцию</div>
-                          <div className="text-xs text-gray-500">Размер порции: {product.portionSizeGrams}г</div>
-                        </div>
-                      )}
-                      {product.pointsCalculationType === 'per_volume' && (
-                        <div>
-                          <div className="font-medium">{product.pointsPerRuble.toFixed(4)} за мл</div>
-                        </div>
-                      )}
-                      {!product.pointsCalculationType && (
-                        <div>
-                          <div className="font-medium">{product.pointsPerRuble.toFixed(4)} за рубль</div>
-                        </div>
-                      )}
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span className="text-sm text-gray-900">
-                      {product.pointsCalculationType === 'per_ruble' && 'За рубль'}
-                      {product.pointsCalculationType === 'per_portion' && 'За порцию'}
-                      {product.pointsCalculationType === 'per_volume' && 'За объем'}
-                      {!product.pointsCalculationType && 'За рубль'}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                      (product.isActive !== false) 
-                        ? 'bg-green-100 text-green-800' 
-                        : 'bg-red-100 text-red-800'
-                    }`}>
-                      {(product.isActive !== false) ? 'Активен' : 'Неактивен'}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                    <button
-                      onClick={() => handleEdit(product)}
-                      className="text-blue-600 hover:text-blue-900 mr-4"
-                    >
-                      Редактировать
-                    </button>
-                    <button
-                      onClick={() => handleToggleStatus(product._id, product.isActive)}
-                      className={`mr-4 ${
-                        (product.isActive !== false) 
-                          ? 'text-orange-600 hover:text-orange-900' 
-                          : 'text-green-600 hover:text-green-900'
-                      }`}
-                    >
-                      {(product.isActive !== false) ? 'Деактивировать' : 'Активировать'}
-                    </button>
-                    <button
-                      onClick={() => handleDelete(product._id)}
-                      className="text-red-600 hover:text-red-900"
-                    >
-                      Удалить
-                    </button>
-                  </td>
+        <div className="bg-white rounded-lg border border-gray-200 shadow-sm">
+          <div className="px-6 py-4 border-b border-gray-200">
+            <h2 className="text-lg font-medium text-gray-900">
+              Продукты ({pagination.total})
+            </h2>
+          </div>
+          
+          {/* Desktop Table */}
+          <div className="hidden lg:block overflow-x-auto">
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Продукт
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Категория
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Система баллов
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Тип расчета
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Статус
+                  </th>
+                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Действия
+                  </th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {products.map((product) => (
+                  <tr key={product._id}>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div>
+                        <div className="text-sm font-medium text-gray-900">{product.name}</div>
+                        <div className="text-sm text-gray-500">{product.brand}</div>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <span className="text-sm text-gray-900">
+                        {categories.find(cat => cat.value === product.category)?.label || product.category}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="text-sm text-gray-900">
+                        {product.pointsCalculationType === 'per_ruble' && (
+                          <div>
+                            <div className="font-medium">{product.pointsPerRuble.toFixed(4)} за рубль</div>
+                          </div>
+                        )}
+                        {product.pointsCalculationType === 'per_portion' && (
+                          <div>
+                            <div className="font-medium">{product.pointsPerPortion} за порцию</div>
+                            <div className="text-xs text-gray-500">Размер порции: {product.portionSizeGrams}г</div>
+                          </div>
+                        )}
+                        {product.pointsCalculationType === 'per_volume' && (
+                          <div>
+                            <div className="font-medium">{product.pointsPerRuble.toFixed(4)} за мл</div>
+                          </div>
+                        )}
+                        {!product.pointsCalculationType && (
+                          <div>
+                            <div className="font-medium">{product.pointsPerRuble.toFixed(4)} за рубль</div>
+                          </div>
+                        )}
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <span className="text-sm text-gray-900">
+                        {product.pointsCalculationType === 'per_ruble' && 'За рубль'}
+                        {product.pointsCalculationType === 'per_portion' && 'За порцию'}
+                        {product.pointsCalculationType === 'per_volume' && 'За объем'}
+                        {!product.pointsCalculationType && 'За рубль'}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                        (product.isActive !== false) 
+                          ? 'bg-green-100 text-green-800' 
+                          : 'bg-red-100 text-red-800'
+                      }`}>
+                        {(product.isActive !== false) ? 'Активен' : 'Неактивен'}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                      <button
+                        onClick={() => handleEdit(product)}
+                        className="text-blue-600 hover:text-blue-900 mr-4"
+                      >
+                        Редактировать
+                      </button>
+                      <button
+                        onClick={() => handleToggleStatus(product._id, product.isActive)}
+                        className={`mr-4 ${
+                          (product.isActive !== false) 
+                            ? 'text-orange-600 hover:text-orange-900' 
+                            : 'text-green-600 hover:text-green-900'
+                        }`}
+                      >
+                        {(product.isActive !== false) ? 'Деактивировать' : 'Активировать'}
+                      </button>
+                      <button
+                        onClick={() => handleDelete(product._id)}
+                        className="text-red-600 hover:text-red-900"
+                      >
+                        Удалить
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Mobile Cards */}
+          <div className="lg:hidden">
+            {products.map((product) => (
+              <div key={product._id} className="p-6 border-b border-gray-200 last:border-b-0">
+                <div className="flex justify-between items-start mb-4">
+                  <div className="flex-1">
+                    <h3 className="text-lg font-medium text-gray-900">{product.name}</h3>
+                    <p className="text-sm text-gray-600">{product.brand}</p>
+                    <p className="text-sm text-gray-500 mt-1">
+                      {categories.find(cat => cat.value === product.category)?.label || product.category}
+                    </p>
+                  </div>
+                  <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                    (product.isActive !== false) 
+                      ? 'bg-green-100 text-green-800' 
+                      : 'bg-red-100 text-red-800'
+                  }`}>
+                    {(product.isActive !== false) ? 'Активен' : 'Неактивен'}
+                  </span>
+                </div>
+                
+                <div className="mb-4">
+                  <p className="text-sm text-gray-700">
+                    <span className="font-medium">Система баллов:</span>
+                    {product.pointsCalculationType === 'per_ruble' && ` ${product.pointsPerRuble.toFixed(4)} за рубль`}
+                    {product.pointsCalculationType === 'per_portion' && ` ${product.pointsPerPortion} за порцию (${product.portionSizeGrams}г)`}
+                    {product.pointsCalculationType === 'per_volume' && ` ${product.pointsPerRuble.toFixed(4)} за мл`}
+                    {!product.pointsCalculationType && ` ${product.pointsPerRuble.toFixed(4)} за рубль`}
+                  </p>
+                </div>
+                
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    onClick={() => handleEdit(product)}
+                    className="text-blue-600 hover:text-blue-900 text-sm font-medium"
+                  >
+                    Редактировать
+                  </button>
+                  <button
+                    onClick={() => handleToggleStatus(product._id, product.isActive)}
+                    className={`text-sm font-medium ${
+                      (product.isActive !== false) 
+                        ? 'text-orange-600 hover:text-orange-900' 
+                        : 'text-green-600 hover:text-green-900'
+                    }`}
+                  >
+                    {(product.isActive !== false) ? 'Деактивировать' : 'Активировать'}
+                  </button>
+                  <button
+                    onClick={() => handleDelete(product._id)}
+                    className="text-red-600 hover:text-red-900 text-sm font-medium"
+                  >
+                    Удалить
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
 
         {/* Pagination */}
@@ -523,56 +603,61 @@ const AdminProducts = () => {
 
       {/* Modal */}
       {showModal && (
-        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
-          <div className="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50 p-4">
+          <div className="relative top-4 mx-auto p-5 border max-w-2xl w-full shadow-lg rounded-md bg-white">
             <div className="mt-3">
               <h3 className="text-lg font-medium text-gray-900 mb-4">
                 {editingProduct ? 'Редактировать продукт' : 'Добавить продукт'}
               </h3>
               <form onSubmit={handleSubmit} className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">Название</label>
-                  <input
-                    type="text"
-                    required
-                    value={formData.name}
-                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                    className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                  />
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">Название</label>
+                    <input
+                      type="text"
+                      required
+                      value={formData.name}
+                      onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                      className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">Бренд</label>
+                    <input
+                      type="text"
+                      required
+                      value={formData.brand}
+                      onChange={(e) => setFormData({ ...formData, brand: e.target.value })}
+                      className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                    />
+                  </div>
                 </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">Бренд</label>
-                  <input
-                    type="text"
-                    required
-                    value={formData.brand}
-                    onChange={(e) => setFormData({ ...formData, brand: e.target.value })}
-                    className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">Категория</label>
-                  <select
-                    value={formData.category}
-                    onChange={(e) => setFormData({ ...formData, category: e.target.value })}
-                    className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                  >
-                    {categories.map(cat => (
-                      <option key={cat.value} value={cat.value}>{cat.label}</option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">Тип расчета баллов</label>
-                  <select
-                    value={formData.pointsCalculationType}
-                    onChange={(e) => setFormData({ ...formData, pointsCalculationType: e.target.value })}
-                    className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                  >
-                    <option value="per_ruble">За рубль</option>
-                    <option value="per_portion">За порцию</option>
-                    <option value="per_volume">За объем</option>
-                  </select>
+                
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">Категория</label>
+                    <select
+                      value={formData.category}
+                      onChange={(e) => setFormData({ ...formData, category: e.target.value })}
+                      className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                    >
+                      {categories.map(cat => (
+                        <option key={cat.value} value={cat.value}>{cat.label}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">Тип расчета баллов</label>
+                    <select
+                      value={formData.pointsCalculationType}
+                      onChange={(e) => setFormData({ ...formData, pointsCalculationType: e.target.value })}
+                      className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                    >
+                      <option value="per_ruble">За рубль</option>
+                      <option value="per_portion">За порцию</option>
+                      <option value="per_volume">За объем</option>
+                    </select>
+                  </div>
                 </div>
 
                 {formData.pointsCalculationType === 'per_ruble' && (
@@ -595,7 +680,7 @@ const AdminProducts = () => {
 
                 {formData.pointsCalculationType === 'per_portion' && (
                   <>
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       <div>
                         <label className="block text-sm font-medium text-gray-700">Баллов за порцию</label>
                         <input
@@ -619,7 +704,7 @@ const AdminProducts = () => {
                         />
                       </div>
                     </div>
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       <div>
                         <label className="block text-sm font-medium text-gray-700">Цена за бутылку (₽)</label>
                         <input
@@ -645,7 +730,7 @@ const AdminProducts = () => {
                         />
                       </div>
                     </div>
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       <div>
                         <label className="block text-sm font-medium text-gray-700">Отгрузочная цена (₽)</label>
                         <input
@@ -750,7 +835,7 @@ const AdminProducts = () => {
                   >
                     Отмена
                   </Button>
-                  <Button type="submit">
+                  <Button type="submit" className="w-full sm:w-auto">
                     {editingProduct ? 'Сохранить' : 'Создать'}
                   </Button>
                 </div>

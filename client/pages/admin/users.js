@@ -234,19 +234,19 @@ const AdminUsers = () => {
       {/* Header */}
       <header className="bg-white border-b border-gray-200 sticky top-0 z-50 shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center py-4">
-            <div className="flex items-center space-x-4">
-              <h1 className="text-xl font-bold text-gray-900">Управление пользователями</h1>
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center py-4 space-y-2 sm:space-y-0">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center space-y-2 sm:space-y-0 sm:space-x-4">
+              <h1 className="text-lg sm:text-xl font-bold text-gray-900">Управление пользователями</h1>
               <Link href="/admin" className="text-gray-600 hover:text-gray-900 text-sm">
                 ← К админ-панели
               </Link>
             </div>
-            <div className="flex items-center space-x-4">
-              <div className="hidden md:block text-right">
-                <p className="text-gray-900 font-medium">Привет, {user.name}!</p>
-                <p className="text-gray-600 text-sm">{getRoleText(user.role)}</p>
+            <div className="flex flex-col sm:flex-row items-start sm:items-center space-y-2 sm:space-y-0 sm:space-x-4 w-full sm:w-auto">
+              <div className="text-left sm:text-right">
+                <p className="text-gray-900 font-medium text-sm sm:text-base">Привет, {user.name}!</p>
+                <p className="text-gray-600 text-xs sm:text-sm">{getRoleText(user.role)}</p>
               </div>
-              <Button variant="secondary" size="sm" onClick={handleLogout}>
+              <Button variant="secondary" size="sm" onClick={handleLogout} className="w-full sm:w-auto">
                 Выйти
               </Button>
             </div>
@@ -255,7 +255,7 @@ const AdminUsers = () => {
       </header>
 
       {/* Main Content */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-8">
         {error && (
           <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg">
             <p className="text-red-800">{error}</p>
@@ -263,12 +263,88 @@ const AdminUsers = () => {
         )}
 
         <div className="bg-white rounded-lg border border-gray-200 shadow-sm">
-          <div className="px-6 py-4 border-b border-gray-200">
+          <div className="px-4 sm:px-6 py-4 border-b border-gray-200">
             <h2 className="text-lg font-semibold text-gray-900">Список пользователей</h2>
             <p className="text-gray-600 text-sm mt-1">Всего пользователей: {users.length}</p>
           </div>
           
-          <div className="overflow-x-auto">
+          {/* Mobile view */}
+          <div className="block sm:hidden">
+            <div className="divide-y divide-gray-200">
+              {users.map((userItem) => (
+                <div key={userItem._id} className="p-4 space-y-3">
+                  <div className="flex items-center space-x-3">
+                    <div className="flex-shrink-0 h-10 w-10">
+                      <div className="h-10 w-10 rounded-full bg-gray-200 flex items-center justify-center">
+                        <span className="text-sm font-medium text-gray-600">
+                          {userItem.name?.charAt(0)?.toUpperCase() || 'U'}
+                        </span>
+                      </div>
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-gray-900 truncate">{userItem.name}</p>
+                      <p className="text-sm text-gray-500 truncate">{userItem.email}</p>
+                    </div>
+                  </div>
+                  
+                  <div className="grid grid-cols-2 gap-4 text-sm">
+                    <div>
+                      <span className="text-gray-500">Роль:</span>
+                      <p className="font-medium text-gray-900">{getRoleText(userItem.role)}</p>
+                    </div>
+                    <div>
+                      <span className="text-gray-500">Баллы:</span>
+                      <p className="font-medium text-gray-900">{userItem.points || 0}</p>
+                    </div>
+                    <div>
+                      <span className="text-gray-500">Статус:</span>
+                      <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                        userItem.isActive !== false ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                      }`}>
+                        {userItem.isActive !== false ? 'Активен' : 'Заблокирован'}
+                      </span>
+                    </div>
+                    <div>
+                      <span className="text-gray-500">Регистрация:</span>
+                      <p className="text-gray-900 text-xs">
+                        {new Date(userItem.createdAt).toLocaleDateString('ru-RU')}
+                      </p>
+                    </div>
+                  </div>
+                  
+                  <div className="flex flex-wrap gap-2 pt-2">
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      onClick={() => handleEditUser(userItem)}
+                      className="text-xs"
+                    >
+                      Редактировать
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant={userItem.isActive !== false ? "secondary" : "primary"}
+                      onClick={() => handleToggleUserStatus(userItem._id, userItem.isActive)}
+                      className="text-xs"
+                    >
+                      {userItem.isActive !== false ? 'Заблокировать' : 'Разблокировать'}
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="danger"
+                      onClick={() => handleDeleteUser(userItem._id)}
+                      className="text-xs"
+                    >
+                      Удалить
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+          
+          {/* Desktop view */}
+          <div className="hidden sm:block overflow-x-auto">
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50">
                 <tr>

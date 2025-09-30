@@ -115,21 +115,21 @@ const AdminDashboard = () => {
       {/* Header */}
       <header className="bg-white border-b border-gray-200 sticky top-0 z-50 shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center py-4">
-            <div className="flex items-center space-x-4">
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center py-4 space-y-2 sm:space-y-0">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center space-y-2 sm:space-y-0 sm:space-x-4">
               <h1 className="text-xl font-bold text-gray-900">Админ-панель</h1>
               <Link href="/dashboard" className="text-gray-600 hover:text-gray-900 text-sm">
                 ← К пользовательской панели
               </Link>
             </div>
-            <div className="flex items-center space-x-4">
-              <div className="hidden md:block text-right">
-                <p className="text-gray-900 font-medium">Привет, {user.name}!</p>
-                <p className="text-gray-600 text-sm">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center space-y-2 sm:space-y-0 sm:space-x-4 w-full sm:w-auto">
+              <div className="text-left sm:text-right">
+                <p className="text-gray-900 font-medium text-sm sm:text-base">Привет, {user.name}!</p>
+                <p className="text-gray-600 text-xs sm:text-sm">
                   {user.role === 'admin' ? 'Администратор' : 'Представитель бренда'}
                 </p>
               </div>
-              <Button variant="secondary" size="sm" onClick={handleLogout}>
+              <Button variant="secondary" size="sm" onClick={handleLogout} className="w-full sm:w-auto">
                 Выйти
               </Button>
             </div>
@@ -137,7 +137,7 @@ const AdminDashboard = () => {
         </div>
       </header>
 
-      <main className="max-w-7xl mx-auto py-8 px-4 sm:px-6 lg:px-8">
+      <main className="max-w-7xl mx-auto py-4 sm:py-8 px-4 sm:px-6 lg:px-8">
         
         {error && (
           <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
@@ -146,7 +146,7 @@ const AdminDashboard = () => {
         )}
 
         {/* Key Metrics */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 mb-6 sm:mb-8">
           <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-6">
             <div className="flex items-center justify-between">
               <div>
@@ -207,12 +207,12 @@ const AdminDashboard = () => {
         </div>
 
         {/* Navigation */}
-        <div className="bg-white rounded-lg border border-gray-200 shadow-sm mb-8">
-          <div className="px-6 py-4 border-b border-gray-200">
-            <h2 className="text-xl font-semibold text-gray-900">Управление</h2>
+        <div className="bg-white rounded-lg border border-gray-200 shadow-sm mb-6 sm:mb-8">
+          <div className="px-4 sm:px-6 py-4 border-b border-gray-200">
+            <h2 className="text-lg sm:text-xl font-semibold text-gray-900">Управление</h2>
           </div>
-          <div className="p-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="p-4 sm:p-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4">
               <Link href="/admin/sales" className="p-4 bg-gray-50 rounded-lg border border-gray-200 hover:bg-gray-100 transition-colors">
                 <h3 className="text-gray-900 font-medium mb-2">Модерация продаж</h3>
                 <p className="text-gray-600 text-sm">Проверка и подтверждение продаж</p>
@@ -242,72 +242,74 @@ const AdminDashboard = () => {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 sm:gap-8">
           {/* Recent Sales */}
           <div className="bg-white rounded-lg border border-gray-200 shadow-sm">
-            <div className="px-6 py-4 border-b border-gray-200">
-              <h2 className="text-xl font-semibold text-gray-900">Последние продажи</h2>
+            <div className="px-4 sm:px-6 py-4 border-b border-gray-200">
+              <h2 className="text-lg sm:text-xl font-semibold text-gray-900">Последние продажи</h2>
             </div>
-            <div className="p-6">
+            <div className="p-4 sm:p-6">
               {stats.recentSales && stats.recentSales.length > 0 ? (
-                <div className="overflow-x-auto">
-                  <table className="w-full">
-                    <thead>
-                      <tr className="border-b border-gray-200">
-                        <th className="text-left py-3 text-gray-900 font-medium text-sm">Бармен</th>
-                        <th className="text-left py-3 text-gray-900 font-medium text-sm">Продукт</th>
-                        <th className="text-left py-3 text-gray-900 font-medium text-sm">Дата</th>
-                        <th className="text-right py-3 text-gray-900 font-medium text-sm">Сумма</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-gray-200">
-                      {stats.recentSales.slice(0, 5).map((sale, index) => (
-                        <tr key={sale._id || index}>
-                          <td className="py-3 text-gray-900 text-sm">{sale.bartender?.name || 'Неизвестно'}</td>
-                          <td className="py-3 text-gray-600 text-sm">{sale.product}</td>
-                          <td className="py-3 text-gray-600 text-sm">{formatDate(sale.createdAt)}</td>
-                          <td className="py-3 text-right text-gray-900 font-medium text-sm">{sale.price?.toLocaleString()} ₽</td>
+                <div className="overflow-x-auto -mx-4 sm:mx-0">
+                  <div className="min-w-full inline-block align-middle">
+                    <table className="w-full min-w-[500px]">
+                      <thead>
+                        <tr className="border-b border-gray-200">
+                          <th className="text-left py-3 px-2 sm:px-0 text-gray-900 font-medium text-xs sm:text-sm">Бармен</th>
+                          <th className="text-left py-3 px-2 sm:px-0 text-gray-900 font-medium text-xs sm:text-sm">Продукт</th>
+                          <th className="text-left py-3 px-2 sm:px-0 text-gray-900 font-medium text-xs sm:text-sm">Дата</th>
+                          <th className="text-right py-3 px-2 sm:px-0 text-gray-900 font-medium text-xs sm:text-sm">Сумма</th>
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                      </thead>
+                      <tbody className="divide-y divide-gray-200">
+                        {stats.recentSales.slice(0, 5).map((sale, index) => (
+                          <tr key={sale._id || index}>
+                            <td className="py-3 px-2 sm:px-0 text-gray-900 text-xs sm:text-sm truncate max-w-[100px]">{sale.bartender?.name || 'Неизвестно'}</td>
+                            <td className="py-3 px-2 sm:px-0 text-gray-600 text-xs sm:text-sm truncate max-w-[120px]">{sale.product}</td>
+                            <td className="py-3 px-2 sm:px-0 text-gray-600 text-xs sm:text-sm whitespace-nowrap">{formatDate(sale.createdAt)}</td>
+                            <td className="py-3 px-2 sm:px-0 text-right text-gray-900 font-medium text-xs sm:text-sm whitespace-nowrap">{sale.price?.toLocaleString()} ₽</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
                 </div>
               ) : (
-                <p className="text-gray-600 text-center py-4">Нет данных о продажах</p>
+                <p className="text-gray-600 text-center py-4 text-sm">Нет данных о продажах</p>
               )}
             </div>
           </div>
 
           {/* Top Bartenders */}
           <div className="bg-white rounded-lg border border-gray-200 shadow-sm">
-            <div className="px-6 py-4 border-b border-gray-200">
-              <h2 className="text-xl font-semibold text-gray-900">Топ барменов</h2>
+            <div className="px-4 sm:px-6 py-4 border-b border-gray-200">
+              <h2 className="text-lg sm:text-xl font-semibold text-gray-900">Топ барменов</h2>
             </div>
-            <div className="p-6">
+            <div className="p-4 sm:p-6">
               {stats.topBartenders && stats.topBartenders.length > 0 ? (
-                <div className="space-y-4">
+                <div className="space-y-3 sm:space-y-4">
                   {stats.topBartenders.slice(0, 5).map((bartender, index) => (
                     <div key={bartender._id || index} className="flex items-center justify-between">
-                      <div className="flex items-center space-x-3">
+                      <div className="flex items-center space-x-3 min-w-0 flex-1">
                         <div className="flex-shrink-0">
                           <div className="w-8 h-8 bg-gray-200 rounded-full flex items-center justify-center">
-                            <span className="text-sm font-medium text-gray-600">#{index + 1}</span>
+                            <span className="text-xs sm:text-sm font-medium text-gray-600">#{index + 1}</span>
                           </div>
                         </div>
-                        <div>
-                          <p className="text-gray-900 font-medium text-sm">{bartender.name}</p>
-                          <p className="text-gray-600 text-xs">{bartender.bar} • {bartender.city}</p>
+                        <div className="min-w-0 flex-1">
+                          <p className="text-gray-900 font-medium text-xs sm:text-sm truncate">{bartender.name}</p>
+                          <p className="text-gray-600 text-xs truncate">{bartender.bar} • {bartender.city}</p>
                         </div>
                       </div>
-                      <div className="text-right">
-                        <p className="text-gray-900 font-medium text-sm">{bartender.totalSales} продаж</p>
+                      <div className="text-right flex-shrink-0 ml-4">
+                        <p className="text-gray-900 font-medium text-xs sm:text-sm">{bartender.totalSales} продаж</p>
                         <p className="text-gray-600 text-xs">{bartender.totalAmount?.toLocaleString()} ₽</p>
                       </div>
                     </div>
                   ))}
                 </div>
               ) : (
-                <p className="text-gray-600 text-center py-4">Нет данных о барменах</p>
+                <p className="text-gray-600 text-center py-4 text-sm">Нет данных о барменах</p>
               )}
             </div>
           </div>
