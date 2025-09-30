@@ -86,72 +86,111 @@ router.post('/register', [
   }
 });
 
-// Login
+// Login route
 router.post('/login', [
-  body('email').isEmail().withMessage('Please provide a valid email'),
-  body('password').exists().withMessage('Password is required')
+  body('email', 'Please include a valid email').isEmail(),
+  body('password', 'Password is required').exists()
 ], async (req, res) => {
+  console.log('🔍 LOGIN REQUEST:', {
+    email: req.body.email,
+    hasPassword: !!req.body.password,
+    timestamp: new Date().toISOString()
+  });
+
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    console.log('❌ VALIDATION ERRORS:', errors.array());
+    return res.status(400).json({ errors: errors.array() });
+  }
+
+  const { email, password } = req.body;
+
   try {
-    console.log('Login attempt for:', req.body.email);
+    console.log('🔍 Searching for user:', email);
     
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-      console.log('Validation errors:', errors.array());
-      return res.status(400).json({ errors: errors.array() });
-    }
-
-    const { email, password } = req.body;
-
     // Check if user exists
     const user = await User.findOne({ email });
-    console.log('User found:', !!user);
     if (!user) {
-      console.log('User not found for email:', email);
+      console.log('❌ User not found:', email);
       return res.status(400).json({ message: 'Invalid credentials' });
     }
+
+    console.log('✅ User found:', {
+      id: user._id,
+      name: user.name,
+      email: user.email,
+      role: user.role,
+      hasComparePassword: typeof user.comparePassword === 'function'
+    });
 
     // Check password
-    console.log('Comparing password...');
+    console.log('🔐 Checking password...');
     const isMatch = await user.comparePassword(password);
-    console.log('Password match result:', isMatch);
+    console.log('🔐 Password check result:', isMatch);
+    
     if (!isMatch) {
-      console.log('Password does not match');
+      console.log('❌ Invalid password for user:', email);
       return res.status(400).json({ message: 'Invalid credentials' });
     }
 
-    console.log('Login successful, updating lastLogin...');
+    console.log('✅ Password valid, updating lastLogin...');
     // Update last login
     user.lastLogin = new Date();
     await user.save();
+    console.log('✅ LastLogin updated');
 
+    console.log('🎯 Creating JWT token...');
     // Create JWT token
     const payload = {
-      id: user._id,
+      userId: user._id,
       email: user.email,
       role: user.role
     };
 
-    const token = jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '7d' });
+    console.log('JWT_SECRET exists:', !!process.env.JWT_SECRET);
+    console.log('JWT payload:', payload);
 
-    console.log('JWT token created successfully');
-    res.json({
-      message: 'Login successful',
-      token,
-      user: {
-        id: user._id,
-        name: user.name,
-        email: user.email,
-        phone: user.phone,
-        bar: user.bar,
-        city: user.city,
-        role: user.role,
-        points: user.points,
-        lastLogin: user.lastLogin
+    jwt.sign(
+      payload,
+      process.env.JWT_SECRET,
+      { expiresIn: '24h' },
+      (err, token) => {
+        if (err) {
+          console.error('❌ JWT signing error:', err);
+          throw err;
+        }
+        
+        console.log('✅ JWT token created successfully');
+        console.log('Token length:', token.length);
+        
+        const response = {
+          message: 'Login successful',
+          token,
+          user: {
+            id: user._id,
+            name: user.name,
+            email: user.email,
+            role: user.role,
+            points: user.points,
+            totalEarnings: user.totalEarnings,
+            availableBalance: user.availableBalance
+          }
+        };
+        
+        console.log('✅ Sending successful response');
+        res.json(response);
       }
+    );
+  } catch (err) {
+    console.error('❌ LOGIN ERROR:', {
+      message: err.message,
+      stack: err.stack,
+      name: err.name
     });
-  } catch (error) {
-    console.error('Login error:', error);
-    res.status(500).json({ message: 'Server error' });
+    res.status(500).json({ 
+      message: 'Server error',
+      error: process.env.NODE_ENV === 'development' ? err.message : 'Internal server error'
+    });
   }
 });
 
