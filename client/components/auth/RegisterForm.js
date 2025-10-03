@@ -217,7 +217,7 @@ const RegisterForm = () => {
                 <option value="">Выберите роль</option>
                 {roles.map((roleItem) => (
                   <option key={roleItem._id} value={roleItem._id}>
-                    {roleItem.name}
+                    {roleItem.displayName || roleItem.name}
                   </option>
                 ))}
               </select>

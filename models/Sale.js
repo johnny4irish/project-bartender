@@ -66,6 +66,12 @@ const saleSchema = new mongoose.Schema({
   timestamps: true
 });
 
+// Useful indexes to speed up admin queries and filters
+saleSchema.index({ bar: 1, createdAt: -1 })
+saleSchema.index({ brand: 1 })
+saleSchema.index({ verificationStatus: 1, createdAt: -1 })
+saleSchema.index({ user: 1 })
+
 const MongoSale = mongoose.model('Sale', saleSchema);
 
 

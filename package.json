@@ -6,6 +6,10 @@
   "scripts": {
     "start": "node server.js",
     "dev": "nodemon server.js",
+    "dev:all": "concurrently \"npm run dev\" \"cd client && npm run dev\"",
+    "link:railway": "railway link",
+    "status:railway": "railway status",
+    "deploy:railway": "railway up --detach",
     "client": "cd client && npm start",
     "client-install": "cd client && npm install",
     "client-build": "cd client && npm run build",

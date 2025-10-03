@@ -20,6 +20,8 @@ const AdminPrizes = () => {
     category: 'merchandise',
     isActive: true
   });
+  const [newPrizeImage, setNewPrizeImage] = useState(null);
+  const [newPrizeImagePreview, setNewPrizeImagePreview] = useState('');
 
   // Категории призов
   const prizeCategories = [
@@ -93,18 +95,40 @@ const AdminPrizes = () => {
   const handleAddPrize = async () => {
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch('/api/admin/prizes', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({
-          ...newPrize,
-          cost: parseInt(newPrize.pointsCost),
-          quantity: parseInt(newPrize.quantity)
-        })
-      });
+      let response;
+
+      // Если есть изображение — отправляем как FormData
+      if (newPrizeImage) {
+        const formData = new FormData();
+        formData.append('name', newPrize.name);
+        formData.append('description', newPrize.description);
+        formData.append('pointsCost', parseInt(newPrize.pointsCost));
+        formData.append('category', newPrize.category);
+        formData.append('isActive', newPrize.isActive);
+        formData.append('quantity', parseInt(newPrize.quantity));
+        formData.append('image', newPrizeImage);
+
+        response = await fetch('/api/admin/prizes', {
+          method: 'POST',
+          headers: {
+            'x-auth-token': token
+          },
+          body: formData
+        });
+      } else {
+        response = await fetch('/api/admin/prizes', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-auth-token': token
+          },
+          body: JSON.stringify({
+            ...newPrize,
+            cost: parseInt(newPrize.pointsCost),
+            quantity: parseInt(newPrize.quantity)
+          })
+        });
+      }
 
       if (response.ok) {
         const addedPrize = await response.json();
@@ -118,6 +142,8 @@ const AdminPrizes = () => {
           category: 'merchandise',
           isActive: true
         });
+        setNewPrizeImage(null);
+        setNewPrizeImagePreview('');
         setError('');
       } else {
         const errorData = await response.json();
@@ -441,6 +467,45 @@ const AdminPrizes = () => {
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Изображение приза
+                </label>
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (!file) {
+                      setNewPrizeImage(null);
+                      setNewPrizeImagePreview('');
+                      return;
+                    }
+                    // Простая валидация формата
+                    const validTypes = ['image/jpeg','image/png','image/webp','image/gif'];
+                    if (!validTypes.includes(file.type)) {
+                      setError('Поддерживаются форматы: JPEG, PNG, WEBP, GIF');
+                      return;
+                    }
+                    setError('');
+                    setNewPrizeImage(file);
+                    const previewUrl = URL.createObjectURL(file);
+                    setNewPrizeImagePreview(previewUrl);
+                  }}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+                {newPrizeImagePreview && (
+                  <div className="mt-3">
+                    <img
+                      src={newPrizeImagePreview}
+                      alt="Предпросмотр изображения"
+                      className="max-h-40 rounded-lg border border-gray-200"
+                    />
+                  </div>
+                )}
+                <p className="text-xs text-gray-500 mt-2">Поддерживаются форматы изображений: JPEG, PNG, WEBP, GIF</p>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
                   Количество
                 </label>
                 <input
@@ -481,6 +546,8 @@ const AdminPrizes = () => {
                     category: 'merchandise',
                     isActive: true
                   });
+                  setNewPrizeImage(null);
+                  setNewPrizeImagePreview('');
                 }}
               >
                 Отмена

@@ -195,7 +195,7 @@ roleSchema.statics.createDefaultRoles = async function() {
     },
     {
       name: 'brand_representative',
-      displayName: 'Представитель бренда',
+      displayName: 'Производитель/Дистрибьютор',
       description: 'Доступ к продуктам своего бренда и отчетам',
       level: 5,
       isSystem: true,
@@ -207,6 +207,39 @@ roleSchema.statics.createDefaultRoles = async function() {
         { resource: 'transactions', actions: ['read'] },
         { resource: 'reports', actions: ['read'] },
         { resource: 'brands', actions: ['read', 'update'] }
+      ]
+    },
+    {
+      name: 'bar_manager',
+      displayName: 'Менеджер бара',
+      description: 'Модерация продаж и управление заведением',
+      level: 4,
+      isSystem: true,
+      color: '#2563EB',
+      icon: 'building',
+      permissions: [
+        { resource: 'products', actions: ['read'] },
+        { resource: 'sales', actions: ['read', 'update'] },
+        { resource: 'transactions', actions: ['read'] },
+        { resource: 'reports', actions: ['read'] },
+        { resource: 'bars', actions: ['read', 'update'] },
+        { resource: 'users', actions: ['read'] }
+      ]
+    },
+    {
+      name: 'test_bartender',
+      displayName: 'Тест-бармен',
+      description: 'Тестовая роль для отладки и пилотных запусков',
+      level: 3,
+      isSystem: true,
+      color: '#10B981',
+      icon: 'flask',
+      permissions: [
+        { resource: 'products', actions: ['read'] },
+        { resource: 'sales', actions: ['create', 'read', 'update'] },
+        { resource: 'transactions', actions: ['read'] },
+        { resource: 'prizes', actions: ['read'] },
+        { resource: 'users', actions: ['read'] }
       ]
     }
   ];

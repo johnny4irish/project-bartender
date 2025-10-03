@@ -1,9 +1,12 @@
 const express = require('express');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
+const mongoose = require('mongoose');
 const { body, validationResult } = require('express-validator');
 const { getModel } = require('../models/ModelFactory')
 const User = getModel('User')
+const Role = getModel('Role')
+const { collections, saveUsers } = require('../config/db');
 const auth = require('../middleware/auth');
 
 const router = express.Router();
@@ -30,33 +33,78 @@ router.post('/register', [
     const { name, email, password, phone, bar, city, role } = req.body;
     console.log('Extracted data:', { name, email, phone, bar, city, role });
 
-    // Check if user already exists
-    console.log('Checking if user exists...');
-    let user = await User.findOne({ email });
-    if (user) {
-      console.log('User already exists:', email);
-      return res.status(400).json({ message: 'User already exists' });
+    // Если MongoDB недоступна — используем файловую базу
+    let user;
+    if (mongoose.connection.readyState === 1) {
+      console.log('Checking if user exists (MongoDB)...');
+      user = await User.findOne({ email });
+      if (user) {
+        console.log('User already exists:', email);
+        return res.status(400).json({ message: 'User already exists' });
+      }
+      console.log('User does not exist, validating role and creating user (MongoDB)...');
+
+      // Validate role exists and is active; support ObjectId or name
+      let roleDoc = null;
+      if (mongoose.Types.ObjectId.isValid(role)) {
+        roleDoc = await Role.findById(role);
+      } else {
+        roleDoc = await Role.findOne({ name: String(role).toLowerCase() });
+      }
+      if (!roleDoc || !roleDoc.isActive) {
+        console.log('Invalid or inactive role during registration:', role);
+        return res.status(400).json({ message: 'Недопустимая роль для регистрации' });
+      }
+
+      user = new User({ name, email, password, phone, bar, city, role: roleDoc._id });
+      console.log('User created, saving (MongoDB)...');
+      await user.save();
+      console.log('User saved successfully:', user._id);
+    } else {
+      console.log('MongoDB disconnected. Using file-based users for registration.');
+      // Проверка существования по email в файловой базе
+      const existing = Array.from(collections.users.values()).find(u => (u.email || '').toLowerCase() === email.toLowerCase());
+      if (existing) {
+        console.log('User already exists (file-based):', email);
+        return res.status(400).json({ message: 'User already exists' });
+      }
+
+      // Хэшируем пароль
+      const salt = await bcrypt.genSalt(10);
+      const hashed = await bcrypt.hash(password, salt);
+
+      const crypto = require('crypto');
+      const newId = 'u_' + crypto.randomBytes(8).toString('hex');
+      // В файловом режиме сохраняем роль как строковый ObjectId, если он был определен
+      const roleValueForFile = mongoose.Types.ObjectId.isValid(role) ? role : String(role);
+
+      user = {
+        _id: newId,
+        name,
+        email,
+        password: hashed,
+        phone,
+        bar,
+        city,
+        role: roleValueForFile,
+        points: 0,
+        totalEarnings: 0,
+        availableBalance: 0,
+        withdrawnAmount: 0,
+        isActive: true,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        lastLogin: null
+      };
+      collections.users.set(newId, user);
+      saveUsers();
+      console.log('User saved to file-based storage:', newId);
     }
-    console.log('User does not exist, creating new user...');
-
-    // Create new user
-    user = new User({
-      name,
-      email,
-      password,
-      phone,
-      bar,
-      city,
-      role
-    });
-    console.log('User created, saving...');
-
-    await user.save();
-    console.log('User saved successfully:', user._id);
 
     // Create JWT token
+    // Выровняем payload с /login и middleware: используем userId
     const payload = {
-      id: user._id,
+      userId: user._id,
       email: user.email,
       role: user.role
     };
@@ -107,9 +155,14 @@ router.post('/login', [
 
   try {
     console.log('🔍 Searching for user:', email);
-    
-    // Check if user exists
-    const user = await User.findOne({ email });
+    let user = null;
+    if (mongoose.connection.readyState === 1) {
+      // MongoDB
+      user = await User.findOne({ email });
+    } else {
+      // Файловая база
+      user = Array.from(collections.users.values()).find(u => (u.email || '').toLowerCase() === email.toLowerCase()) || null;
+    }
     if (!user) {
       console.log('❌ User not found:', email);
       return res.status(400).json({ message: 'Invalid credentials' });
@@ -138,7 +191,11 @@ router.post('/login', [
     console.log('🔐 Checking password...');
     let isMatch = false;
     try {
-      isMatch = await user.comparePassword(password);
+      if (mongoose.connection.readyState === 1 && typeof user.comparePassword === 'function') {
+        isMatch = await user.comparePassword(password);
+      } else {
+        isMatch = await bcrypt.compare(password, user.password);
+      }
     } catch (cmpErr) {
       console.log('❌ Error during password comparison:', cmpErr.message);
       return res.status(400).json({ message: 'Invalid credentials' });
@@ -152,8 +209,17 @@ router.post('/login', [
 
     console.log('✅ Password valid, updating lastLogin...');
     // Update last login without triggering full validation
-    await User.updateOne({ _id: user._id }, { $set: { lastLogin: new Date() } });
-    console.log('✅ LastLogin updated via updateOne');
+    if (mongoose.connection.readyState === 1) {
+      await User.updateOne({ _id: user._id }, { $set: { lastLogin: new Date() } });
+      console.log('✅ LastLogin updated via updateOne');
+    } else {
+      user.lastLogin = new Date();
+      if (user._id && collections.users.has(user._id)) {
+        collections.users.set(user._id, user);
+        saveUsers();
+      }
+      console.log('✅ LastLogin updated in file-based storage');
+    }
 
     console.log('🎯 Creating JWT token...');
     // Create JWT token
@@ -214,7 +280,12 @@ router.post('/login', [
 router.get('/me', auth, async (req, res) => {
   try {
     console.log('GET /me - req.user.id:', req.user.id);
-    const user = await User.findById(req.user.id).populate('role');
+    let user = null;
+    if (mongoose.connection.readyState === 1) {
+      user = await User.findById(req.user.id).populate('role');
+    } else {
+      user = collections.users.get(req.user.id) || null;
+    }
     console.log('GET /me - найденный пользователь:', user);
     
     if (!user) {
@@ -222,8 +293,8 @@ router.get('/me', auth, async (req, res) => {
       return res.status(404).json({ message: 'User not found' });
     }
 
-    // Преобразуем объект Mongoose в обычный объект и удаляем пароль
-    const userObject = user.toObject();
+    // Удаляем пароль и возвращаем обычный объект
+    const userObject = (typeof user.toObject === 'function') ? user.toObject() : { ...user };
     delete userObject.password;
     
     console.log('GET /me - отправляем пользователя:', userObject);

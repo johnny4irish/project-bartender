@@ -11,6 +11,7 @@ const SalesHistory = () => {
   const [loading, setLoading] = useState(true)
   const [pagination, setPagination] = useState({})
   const [currentPage, setCurrentPage] = useState(1)
+  const [brandMap, setBrandMap] = useState({})
 
   const { user, isAuthenticated } = useAuth()
   const router = useRouter()
@@ -22,6 +23,7 @@ const SalesHistory = () => {
     }
     fetchSales()
     fetchStats()
+    fetchBrands()
   }, [isAuthenticated, currentPage])
 
   const fetchSales = async () => {
@@ -55,6 +57,22 @@ const SalesHistory = () => {
       setStats(res.data)
     } catch (error) {
       console.error(error)
+    }
+  }
+
+  const fetchBrands = async () => {
+    try {
+      const res = await axios.get('/api/data/brands')
+      const brands = res.data || []
+      const map = {}
+      brands.forEach(b => {
+        if (b && (b._id || b.id)) {
+          map[b._id || b.id] = b.displayName || b.name || 'Без имени'
+        }
+      })
+      setBrandMap(map)
+    } catch (error) {
+      console.error('Ошибка при загрузке брендов', error)
     }
   }
 
@@ -92,6 +110,17 @@ const SalesHistory = () => {
       hour: '2-digit',
       minute: '2-digit'
     })
+  }
+
+  const resolveBrandName = (brand) => {
+    if (!brand) return '—'
+    if (typeof brand === 'string') {
+      return brandMap[brand] || brand
+    }
+    if (typeof brand === 'object') {
+      return brand.displayName || brand.name || brand._id || '—'
+    }
+    return String(brand)
   }
 
   if (!isAuthenticated) {
@@ -273,7 +302,7 @@ const SalesHistory = () => {
                         <tr key={sale._id} className="hover:bg-gray-50">
                           <td className="px-6 py-4 whitespace-nowrap">
                             <div className="text-sm font-medium text-gray-900">
-                              {sale.product} - {sale.brand}
+                              {sale.product} - {resolveBrandName(sale.brand)}
                             </div>
                             {sale.description && (
                               <div className="text-sm text-gray-500">

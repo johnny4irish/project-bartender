@@ -1,6 +1,10 @@
 const express = require('express')
 const dotenv = require('dotenv')
 const cors = require('cors')
+const helmet = require('helmet')
+const compression = require('compression')
+const morgan = require('morgan')
+const rateLimit = require('express-rate-limit')
 const { connectDB } = require('./config/db')
 
 // Load env vars
@@ -15,11 +19,38 @@ const app = express()
 // Body parser middleware
 app.use(express.json({ extended: false }))
 
-// CORS middleware
+// CORS middleware (allow localhost:3000 and localhost:3001 in dev)
 app.use(cors({
-  origin: process.env.CORS_ORIGIN || 'http://localhost:3000',
+  origin: (origin, callback) => {
+    const allowedOrigins = [
+      process.env.CORS_ORIGIN,
+      'http://localhost:3000',
+      'http://localhost:3001',
+      'http://localhost:5001'
+    ].filter(Boolean)
+
+    // Allow non-browser requests (no origin) and allowed origins
+    if (!origin || allowedOrigins.includes(origin)) {
+      return callback(null, true)
+    }
+    return callback(new Error('Not allowed by CORS'))
+  },
   credentials: true
 }))
+
+// Security and performance middlewares
+app.use(helmet())
+app.use(compression())
+app.use(morgan('combined'))
+
+// Basic rate limiting for API routes
+const apiLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 300, // limit each IP to 300 requests per windowMs
+  standardHeaders: true,
+  legacyHeaders: false
+})
+app.use('/api/', apiLimiter)
 
 // Static folder for uploads
 app.use('/uploads', express.static('uploads'))

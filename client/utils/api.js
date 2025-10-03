@@ -1,5 +1,9 @@
 // API Configuration
-export const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
+export const API_BASE_URL =
+  process.env.NEXT_PUBLIC_API_URL ||
+  (process.env.NODE_ENV === 'production'
+    ? 'https://project-bartender-production.up.railway.app'
+    : 'http://localhost:5000');
 
 // Helper function for API calls
 export const apiCall = async (endpoint, options = {}) => {
@@ -13,10 +17,9 @@ export const apiCall = async (endpoint, options = {}) => {
   };
 
   // Add auth token if available
-  const token = localStorage.getItem('token');
-  if (token) {
-    defaultOptions.headers['x-auth-token'] = token;
-  }
+  const isBrowser = typeof window !== 'undefined';
+  const token = isBrowser ? window.localStorage.getItem('token') : null;
+  if (token) defaultOptions.headers['x-auth-token'] = token;
 
   const response = await fetch(url, { ...defaultOptions, ...options });
   

@@ -2,12 +2,14 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import Link from 'next/link';
 import Button from '../../components/ui/Button';
+import { resolveDisplayName } from '../../lib/utils'
 import { authAPI, adminAPI } from '../../utils/api';
 
 const AdminSales = () => {
   const router = useRouter();
   const [user, setUser] = useState(null);
   const [sales, setSales] = useState([]);
+  const [barMap, setBarMap] = useState({});
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
@@ -108,6 +110,29 @@ const AdminSales = () => {
     loadData();
   }, [router]);
 
+  // Загружаем справочник баров для отображения названий вместо ObjectId
+  useEffect(() => {
+    const fetchBars = async () => {
+      try {
+        const res = await fetch('/api/data/bars');
+        if (res.ok) {
+          const bars = await res.json();
+          const map = {};
+          (bars || []).forEach(b => {
+            if (b && (b._id || b.id)) {
+              // Пытаемся использовать displayName, затем name
+              map[b._id || b.id] = b.displayName || b.name || 'Без названия';
+            }
+          });
+          setBarMap(map);
+        }
+      } catch (err) {
+        console.error('Ошибка загрузки баров:', err);
+      }
+    };
+    fetchBars();
+  }, []);
+
   const handleLogout = () => {
     localStorage.removeItem('token');
     router.push('/');
@@ -201,6 +226,8 @@ const AdminSales = () => {
     }
   };
 
+  // Используем универсальный резолвер для отображения названия бара
+
   const getRoleText = (role) => {
     // Если роль - строка
     if (typeof role === 'string') {
@@ -261,12 +288,12 @@ const AdminSales = () => {
     
     // Если роль - строка
     if (typeof user.role === 'string') {
-      return user.role === 'admin' || user.role === 'brand_representative';
+      return user.role === 'admin' || user.role === 'brand_representative' || user.role === 'bar_manager';
     }
     
     // Если роль - объект с полем name
     if (user.role && typeof user.role === 'object' && user.role.name) {
-      return user.role.name === 'admin' || user.role.name === 'brand_representative';
+      return user.role.name === 'admin' || user.role.name === 'brand_representative' || user.role.name === 'bar_manager';
     }
     
     return false;
@@ -551,7 +578,7 @@ const AdminSales = () => {
                       {sale.product || 'Не указан'}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {sale.bar || 'Не указан'}
+                      {resolveDisplayName(sale.bar, barMap) || 'Не указан'}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                       {sale.price?.toLocaleString() || 0} ₽

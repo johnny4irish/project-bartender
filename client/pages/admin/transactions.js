@@ -125,6 +125,8 @@ const AdminTransactions = () => {
       switch (role) {
         case 'admin': return 'Администратор';
         case 'brand_representative': return 'Представитель бренда';
+        case 'bar_manager': return 'Менеджер бара';
+        case 'test_bartender': return 'Тест-бармен';
         case 'bartender': return 'Бармен';
         default: return role;
       }
@@ -136,6 +138,8 @@ const AdminTransactions = () => {
       switch (roleName) {
         case 'admin': return 'Администратор';
         case 'brand_representative': return 'Представитель бренда';
+        case 'bar_manager': return 'Менеджер бара';
+        case 'test_bartender': return 'Тест-бармен';
         case 'bartender': return 'Бармен';
         default: return roleName || 'Неизвестная роль';
       }

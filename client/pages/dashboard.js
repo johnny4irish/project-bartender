@@ -2,7 +2,8 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import Link from 'next/link';
 import Button from '../components/ui/Button';
-import { authAPI, salesAPI } from '../utils/api';
+import { authAPI, salesAPI, API_BASE_URL } from '../utils/api';
+import axios from 'axios';
 
 const Dashboard = () => {
   const router = useRouter();
@@ -18,6 +19,9 @@ const Dashboard = () => {
     recentSales: []
   });
   const [isLoading, setIsLoading] = useState(true);
+  const [cityName, setCityName] = useState('');
+  const [barName, setBarName] = useState('');
+  const [brandMap, setBrandMap] = useState({});
 
   useEffect(() => {
     const token = localStorage.getItem('token');
@@ -28,6 +32,62 @@ const Dashboard = () => {
 
     fetchUserData(token);
   }, [router]);
+
+  // Подгружаем русские названия города и заведения, если у пользователя сохранены ObjectId
+  useEffect(() => {
+    const loadRefs = async () => {
+      try {
+        if (user?.city) {
+          // если уже есть объект с именем
+          if (typeof user.city === 'object' && user.city.name) {
+            setCityName(user.city.name);
+          } else if (typeof user.city === 'string') {
+            const { data } = await axios.get('/api/data/cities');
+            const found = Array.isArray(data) ? data.find(c => c._id === user.city) : null;
+            if (found?.name) setCityName(found.name);
+          }
+        }
+        if (user?.bar) {
+          if (typeof user.bar === 'object' && user.bar.name) {
+            setBarName(user.bar.name);
+          } else if (typeof user.bar === 'string') {
+            const { data } = await axios.get('/api/data/bars');
+            const found = Array.isArray(data) ? data.find(b => b._id === user.bar) : null;
+            if (found?.name) setBarName(found.name);
+          }
+        }
+      } catch (error) {
+        console.error('Ошибка загрузки справочников для города/заведения:', error?.message || error);
+      }
+    };
+    loadRefs();
+  }, [user]);
+
+  // Загружаем словарь брендов для отображения в «Последние продажи»
+  useEffect(() => {
+    const loadBrands = async () => {
+      try {
+        const { data } = await axios.get(`${API_BASE_URL}/api/data/brands`);
+        if (Array.isArray(data)) {
+          const map = {};
+          data.forEach(b => { map[b._id] = b.displayName || b.name; });
+          setBrandMap(map);
+        }
+      } catch (error) {
+        console.error('Ошибка загрузки брендов:', error?.message || error);
+      }
+    };
+    loadBrands();
+  }, []);
+
+  const resolveBrandName = (brand) => {
+    if (!brand) return 'Не указан';
+    const isObjectId = typeof brand === 'string' && /^[a-f0-9]{24}$/i.test(brand);
+    if (isObjectId) {
+      return brandMap[brand] || brand;
+    }
+    return brand;
+  };
 
   const fetchUserData = async (token) => {
     try {
@@ -121,7 +181,7 @@ const Dashboard = () => {
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
                   </svg>
-                  {user.bar || 'Не указано'} • {user.city || 'Не указан'}
+                  {barName || user.bar || 'Не указано'} • {cityName || user.city || 'Не указан'}
                 </p>
               </div>
               <Button variant="secondary" size="sm" onClick={handleLogout}>
@@ -256,11 +316,11 @@ const Dashboard = () => {
               <div className="space-y-4">
                 <div className="flex justify-between items-center py-3 border-b border-gray-200">
                   <span className="text-gray-600">Заведение</span>
-                  <span className="text-gray-900 font-medium">{user.bar || 'Не указано'}</span>
+                  <span className="text-gray-900 font-medium">{barName || user.bar || 'Не указано'}</span>
                 </div>
                 <div className="flex justify-between items-center py-3 border-b border-gray-200">
                   <span className="text-gray-600">Город</span>
-                  <span className="text-gray-900 font-medium">{user.city || 'Не указан'}</span>
+                  <span className="text-gray-900 font-medium">{cityName || user.city || 'Не указан'}</span>
                 </div>
                 <div className="flex justify-between items-center py-3 border-b border-gray-200">
                   <span className="text-gray-600">Рейтинг</span>
@@ -344,7 +404,7 @@ const Dashboard = () => {
                   stats.recentSales.map((sale, index) => (
                     <tr key={sale._id || `sale-${index}`} className="hover:bg-gray-50 transition-colors">
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{sale.product}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">{sale.brand}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">{resolveBrandName(sale.brand)}</td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
                         {new Date(sale.createdAt).toLocaleDateString('ru-RU')}
                       </td>

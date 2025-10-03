@@ -1,6 +1,9 @@
 const express = require('express')
 const mongoose = require('mongoose')
 const bcrypt = require('bcryptjs')
+const path = require('path')
+const fs = require('fs')
+const multer = require('multer')
 const router = express.Router()
 const auth = require('../middleware/auth')
 const { getModel } = require('../models/ModelFactory')
@@ -15,6 +18,35 @@ const City = require('../models/City')
 const Bar = require('../models/Bar')
 const Role = require('../models/Role')
 
+// Настройка хранения изображений призов (расположено до объявлений роутов)
+const uploadDir = path.join(process.cwd(), 'uploads', 'prizes')
+try {
+  if (!fs.existsSync(uploadDir)) {
+    fs.mkdirSync(uploadDir, { recursive: true })
+  }
+} catch (e) {
+  console.error('Failed to ensure upload directory:', e)
+}
+
+const storage = multer.diskStorage({
+  destination: function (req, file, cb) {
+    cb(null, uploadDir)
+  },
+  filename: function (req, file, cb) {
+    const ext = path.extname(file.originalname).toLowerCase()
+    const base = path.basename(file.originalname, ext).replace(/[^a-zA-Z0-9_-]/g, '')
+    cb(null, `${base}-${Date.now()}${ext}`)
+  }
+})
+
+const imageFilter = function (req, file, cb) {
+  const allowed = ['image/jpeg', 'image/png', 'image/webp', 'image/gif']
+  if (allowed.includes(file.mimetype)) cb(null, true)
+  else cb(new Error('Неподдерживаемый формат изображения'))
+}
+
+const prizeUpload = multer({ storage, fileFilter: imageFilter })
+
 // Get the bartender role ObjectId
 const getBartenderRoleId = async () => {
   const bartenderRole = await Role.findOne({ name: 'test_bartender' });
@@ -22,7 +54,7 @@ const getBartenderRoleId = async () => {
 };
 
 // Импортируем утилиты для работы с ролями
-const { hasAdminAccessAsync } = require('../utils/roleUtils');
+const { hasAdminAccessAsync, hasModerationAccessAsync } = require('../utils/roleUtils');
 
 // Middleware для проверки прав администратора
 const adminAuth = async (req, res, next) => {
@@ -41,6 +73,27 @@ const adminAuth = async (req, res, next) => {
     next();
   } catch (error) {
     console.error('AdminAuth error:', error.message);
+    res.status(500).json({ error: 'Ошибка сервера' });
+  }
+}
+
+// Middleware для проверки прав модерации продаж (админ/бренд/менеджер бара)
+const moderationAuth = async (req, res, next) => {
+  try {
+    console.log('ModerationAuth: Проверяем доступ пользователя:', req.user.email);
+    console.log('ModerationAuth: Роль пользователя:', req.user.role);
+
+    const hasAccess = await hasModerationAccessAsync(req.user);
+
+    if (!hasAccess) {
+      console.log('ModerationAuth: Доступ запрещен для пользователя:', req.user.email);
+      return res.status(403).json({ msg: 'Доступ запрещен' });
+    }
+
+    console.log('ModerationAuth: Доступ разрешен для пользователя:', req.user.email);
+    next();
+  } catch (error) {
+    console.error('ModerationAuth error:', error.message);
     res.status(500).json({ error: 'Ошибка сервера' });
   }
 }
@@ -174,7 +227,7 @@ router.get('/dashboard', [auth, adminAuth], async (req, res) => {
 // @route   GET /api/admin/sales
 // @desc    Получить все продажи для модерации
 // @access  Private (Admin/Brand Rep)
-router.get('/sales', [auth, adminAuth], async (req, res) => {
+router.get('/sales', [auth, moderationAuth], async (req, res) => {
   try {
     const page = parseInt(req.query.page) || 1
     const limit = parseInt(req.query.limit) || 20
@@ -186,12 +239,20 @@ router.get('/sales', [auth, adminAuth], async (req, res) => {
     if (status) query.verificationStatus = status
     if (brand) query.brand = new RegExp(brand, 'i')
 
+    // Менеджер бара видит только продажи своего бара
+    const { getRoleNameAsync } = require('../utils/roleUtils');
+    const roleName = await getRoleNameAsync(req.user.role);
+    if (roleName === 'bar_manager' && req.user.bar) {
+      query.bar = req.user.bar
+    }
+
     const total = await Sale.countDocuments(query)
     const sales = await Sale.find(query)
       .populate('user', 'name email bar city phone')
       .sort({ createdAt: -1 })
       .limit(limit)
       .skip(startIndex)
+      .lean()
 
     res.json({
       sales,
@@ -210,7 +271,7 @@ router.get('/sales', [auth, adminAuth], async (req, res) => {
 // @route   PUT /api/admin/sales/:id/verify
 // @desc    Верифицировать продажу
 // @access  Private (Admin/Brand Rep)
-router.put('/sales/:id/verify', [auth, adminAuth], async (req, res) => {
+router.put('/sales/:id/verify', [auth, moderationAuth], async (req, res) => {
   try {
     const { status, notes } = req.body
 
@@ -227,6 +288,13 @@ router.put('/sales/:id/verify', [auth, adminAuth], async (req, res) => {
     
     // Вызываем populate отдельно
     await sale.populate('user')
+
+    // Менеджер бара может модерировать только продажи своего бара
+    const { getRoleNameAsync } = require('../utils/roleUtils');
+    const roleName = await getRoleNameAsync(req.user.role);
+    if (roleName === 'bar_manager' && req.user.bar && sale.bar !== req.user.bar) {
+      return res.status(403).json({ msg: 'Доступ запрещен: можно модерировать только продажи своего бара' })
+    }
 
     console.log('Продажа найдена:', sale._id, 'Пользователь:', sale.user ? sale.user._id : 'не загружен')
 
@@ -442,16 +510,18 @@ router.get('/prizes', [auth, adminAuth], async (req, res) => {
 // @route   POST /api/admin/prizes
 // @desc    Создать новый приз
 // @access  Private (Admin/Brand Rep)
-router.post('/prizes', [auth, adminAuth], async (req, res) => {
+router.post('/prizes', [auth, adminAuth, prizeUpload.single('image')], async (req, res) => {
   try {
     const { name, description, pointsCost, category, imageUrl, isActive, quantity } = req.body
+
+    const finalImageUrl = req.file ? `/uploads/prizes/${req.file.filename}` : imageUrl
 
     const prizeData = {
       name,
       description,
       cost: pointsCost,
       category,
-      imageUrl,
+      imageUrl: finalImageUrl,
       isActive,
       quantity,
       originalQuantity: quantity,
@@ -469,7 +539,7 @@ router.post('/prizes', [auth, adminAuth], async (req, res) => {
 // @route   PUT /api/admin/prizes/:id
 // @desc    Обновить приз
 // @access  Private (Admin/Brand Rep)
-router.put('/prizes/:id', [auth, adminAuth], async (req, res) => {
+router.put('/prizes/:id', [auth, adminAuth, prizeUpload.single('image')], async (req, res) => {
   try {
     const { name, description, pointsCost, category, imageUrl, isActive, quantity } = req.body
 
@@ -478,7 +548,12 @@ router.put('/prizes/:id', [auth, adminAuth], async (req, res) => {
     if (description !== undefined) updateData.description = description
     if (pointsCost !== undefined) updateData.cost = pointsCost
     if (category !== undefined) updateData.category = category
-    if (imageUrl !== undefined) updateData.imageUrl = imageUrl
+    // Если пришел файл, приоритизируем его над imageUrl
+    if (req.file) {
+      updateData.imageUrl = `/uploads/prizes/${req.file.filename}`
+    } else if (imageUrl !== undefined) {
+      updateData.imageUrl = imageUrl
+    }
     if (isActive !== undefined) updateData.isActive = isActive
     if (quantity !== undefined) updateData.quantity = quantity
 
@@ -532,6 +607,7 @@ router.get('/transactions', [auth, adminAuth], async (req, res) => {
       .sort({ createdAt: -1 })
       .limit(limit)
       .skip(startIndex)
+      .lean()
 
     res.json({
       transactions,
@@ -560,20 +636,20 @@ router.get('/products', [auth, adminAuth], async (req, res) => {
     const search = req.query.search
     const startIndex = (page - 1) * limit
 
-    // Получаем все продукты
-    let allProducts = await Product.find()
+    // Получаем все продукты (lean для ускорения)
+    let allProducts = await Product.find().lean()
     
     // Фильтрация по категории
     if (category) {
-      allProducts = allProducts.filter(product => product.category === category)
+      allProducts = allProducts.filter(product => String(product.category) === category)
     }
     
     // Поиск по названию или бренду
     if (search) {
       const searchLower = search.toLowerCase()
       allProducts = allProducts.filter(product => 
-        product.name.toLowerCase().includes(searchLower) ||
-        product.brand.toLowerCase().includes(searchLower)
+        (product.name || '').toLowerCase().includes(searchLower) ||
+        String(product.brand || '').toLowerCase().includes(searchLower)
       )
     }
     

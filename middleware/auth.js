@@ -1,5 +1,7 @@
 const jwt = require('jsonwebtoken');
+const mongoose = require('mongoose');
 const { getModel } = require('../models/ModelFactory')
+const { collections } = require('../config/db');
 const User = getModel('User')
 
 module.exports = async (req, res, next) => {
@@ -33,9 +35,16 @@ module.exports = async (req, res, next) => {
     console.log('Auth Middleware: Токен декодирован:', decoded);
     console.log('Auth Middleware: ID пользователя из токена:', decoded.userId);
     
-    // Находим пользователя
+    // Находим пользователя (фолбэк на файловую базу при дисконнекте MongoDB)
     console.log('Auth Middleware: Ищем пользователя по ID:', decoded.userId);
-    const user = await User.findById(decoded.userId);
+    let user = null;
+    if (mongoose.connection.readyState === 1) {
+      // Подключено к MongoDB
+      user = await User.findById(decoded.userId);
+    } else {
+      // Фолбэк на файловую БД
+      user = collections.users.get(decoded.userId) || null;
+    }
     
     if (!user) {
       console.log('Auth Middleware: Пользователь не найден в базе данных');
@@ -46,7 +55,7 @@ module.exports = async (req, res, next) => {
     let userRole = user.role;
     console.log('Auth Middleware: Исходная роль:', userRole, 'Тип:', typeof userRole);
     
-    if (typeof userRole === 'string' && userRole.length === 24) {
+    if (typeof userRole === 'string' && userRole.length === 24 && mongoose.connection.readyState === 1) {
       try {
         const Role = require('../models/Role');
         const roleDoc = await Role.findById(userRole);
@@ -61,7 +70,9 @@ module.exports = async (req, res, next) => {
         const Role = require('../models/Role');
         const roleId = userRole._id || userRole.toString();
         console.log('Auth Middleware: Ищем роль по ID:', roleId);
-        const roleDoc = await Role.findById(roleId);
+        const roleDoc = mongoose.connection.readyState === 1 
+          ? await Role.findById(roleId) 
+          : null;
         userRole = roleDoc ? roleDoc.name : userRole;
         console.log('Auth Middleware: Роль из объекта:', userRole);
       } catch (roleError) {
@@ -100,3 +111,30 @@ module.exports = async (req, res, next) => {
     res.status(401).json({ msg: 'Токен недействителен' });
   }
 };
+
+// RBAC: Middleware для проверки роли и установки scope-фильтра
+function authorize(allowedRoles = []) {
+  return async (req, res, next) => {
+    try {
+      const { getRoleNameAsync } = require('../utils/roleUtils');
+      const roleName = await getRoleNameAsync(req.user.role);
+
+      if (!allowedRoles || allowedRoles.length === 0) {
+        return next();
+      }
+
+      if (!roleName || !allowedRoles.includes(roleName)) {
+        return res.status(403).json({ msg: 'Доступ запрещен' });
+      }
+
+      const { buildScopeFilter } = require('../utils/roleUtils');
+      res.locals.scopeFilter = buildScopeFilter(req.user);
+      return next();
+    } catch (e) {
+      console.error('Authorize middleware error:', e.message);
+      return res.status(500).json({ msg: 'Ошибка проверки прав доступа' });
+    }
+  };
+}
+
+module.exports.authorize = authorize;

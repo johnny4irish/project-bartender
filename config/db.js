@@ -1,4 +1,5 @@
 const mongoose = require('mongoose');
+const Role = require('../models/Role');
 const fs = require('fs');
 const path = require('path');
 
@@ -53,23 +54,104 @@ const saveTransactions = () => saveToFile(transactions, transactionsFile);
 const savePrizes = () => saveToFile(prizes, prizesFile);
 const saveProducts = () => saveToFile(products, productsFile);
 
+// Небольшая утилита ожидания для ретраев подключений
+const wait = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
+// Опции подключения к MongoDB (единая точка правды)
+const getMongoOptions = () => ({
+  // Даем больше времени на выбор ноды кластера и сетевые колебания
+  serverSelectionTimeoutMS: 20000,
+  socketTimeoutMS: 45000,
+  maxPoolSize: 10,
+  autoIndex: true,
+  keepAlive: true,
+  keepAliveInitialDelay: 300000,
+});
+
+// Управление переподключением
+let reconnecting = false;
+let reconnectAttempts = 0;
+const MAX_RECONNECT_ATTEMPTS = 20;
+const BASE_RECONNECT_DELAY_MS = 2000;
+
+const scheduleReconnect = async () => {
+  if (!process.env.MONGODB_URI) return;
+  if (reconnecting) return;
+  reconnecting = true;
+  const delay = Math.min(BASE_RECONNECT_DELAY_MS * (1 + reconnectAttempts), 15000);
+  console.log(`⏳ Попытка переподключения к MongoDB через ${delay}мс (попытка ${reconnectAttempts + 1})`);
+  await wait(delay);
+  try {
+    await mongoose.connect(process.env.MONGODB_URI, getMongoOptions());
+    reconnectAttempts = 0;
+    console.log('🔄 MongoDB успешно переподключена');
+  } catch (err) {
+    reconnectAttempts++;
+    console.error('❌ Ошибка переподключения MongoDB:', err.message);
+    reconnecting = false;
+    if (reconnectAttempts < MAX_RECONNECT_ATTEMPTS) {
+      // Планируем следующую попытку
+      scheduleReconnect();
+    } else {
+      console.error('🚫 Достигнут лимит попыток переподключения MongoDB');
+    }
+  } finally {
+    reconnecting = false;
+  }
+};
+
 // Подключение к MongoDB
 const connectDB = async () => {
   try {
     // Проверяем доступность MongoDB
     if (process.env.MONGODB_URI) {
-      try {
-        const conn = await mongoose.connect(process.env.MONGODB_URI, {
-          useNewUrlParser: true,
-          useUnifiedTopology: true,
-          serverSelectionTimeoutMS: 5000, // Таймаут 5 секунд
-        });
-        console.log(`MongoDB Connected: ${conn.connection.host}`);
-        console.log(`Database: ${conn.connection.name}`);
-        return;
-      } catch (mongoError) {
-        console.log('MongoDB недоступен, переключаемся на файловое хранилище');
-        console.log('Ошибка:', mongoError.message);
+      const mongoOptions = getMongoOptions();
+
+      const MAX_RETRIES = 3;
+      const RETRY_DELAY_MS = 3000;
+
+      for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+        try {
+          const conn = await mongoose.connect(process.env.MONGODB_URI, mongoOptions);
+          console.log(`MongoDB Connected: ${conn.connection.host}`);
+          console.log(`Database: ${conn.connection.name}`);
+
+          // Ensure default system roles exist
+          try {
+            await Role.createDefaultRoles();
+            console.log('Default roles ensured');
+          } catch (rolesErr) {
+            console.error('Error ensuring default roles:', rolesErr.message);
+          }
+
+          // Логирование состояния соединения и авто‑реконнект
+          mongoose.connection.on('connected', () => {
+            console.log('✔️  MongoDB: connected');
+          });
+          mongoose.connection.on('disconnected', () => {
+            console.log('⚠️  MongoDB: disconnected. Пытаюсь переподключиться...');
+            scheduleReconnect();
+          });
+          mongoose.connection.on('reconnected', () => {
+            console.log('✔️  MongoDB: reconnected');
+          });
+          mongoose.connection.on('error', (err) => {
+            console.error('❌ MongoDB connection error:', err.message);
+            if (mongoose.connection.readyState !== 1) {
+              scheduleReconnect();
+            }
+          });
+
+          return; // Успешное подключение — выходим без фолбэка
+        } catch (mongoError) {
+          console.log(`Попытка подключения к MongoDB #${attempt} не удалась: ${mongoError.message}`);
+          if (attempt < MAX_RETRIES) {
+            console.log(`Повторная попытка через ${RETRY_DELAY_MS}мс...`);
+            await wait(RETRY_DELAY_MS);
+          } else {
+            console.log('MongoDB недоступен после нескольких попыток, переключаемся на файловое хранилище');
+          }
+        }
       }
     }
 
@@ -122,3 +204,9 @@ module.exports = {
   savePrizes,
   saveProducts
 };
+// Глобальные настройки Mongoose для стабильности
+mongoose.set('strictQuery', true);
+// Отключаем буферизацию команд, чтобы не ждать таймауты при дисконнекте
+mongoose.set('bufferCommands', false);
+// Снижаем время ожидания буфера для более быстрого фолбэка
+mongoose.set('bufferTimeoutMS', 2000);

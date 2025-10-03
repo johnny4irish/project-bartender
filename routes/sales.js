@@ -5,6 +5,7 @@ const Sale = getModel('Sale')
 const User = getModel('User')
 const Product = getModel('Product')
 const Transaction = getModel('Transaction')
+const Brand = getModel('Brand')
 const auth = require('../middleware/auth')
 const multer = require('multer')
 const path = require('path')
@@ -104,12 +105,24 @@ router.post('/', auth, upload.single('receipt'), async (req, res) => {
       }
     }
 
+    // Resolve brand name (displayName or name) from Product.brand ObjectId
+    let brandValue = ''
+    try {
+      const brandDoc = await Brand.findById(productInDb.brand)
+      brandValue = brandDoc ? (brandDoc.displayName || brandDoc.name || '') : ''
+    } catch (e) {
+      brandValue = ''
+    }
+    if (!brandValue) {
+      brandValue = typeof productInDb.brand === 'string' ? productInDb.brand : (productInDb.brand?.toString() || '')
+    }
+
     // Create new sale
     const sale = new Sale({
       user: userId,
       bar: req.user.bar,
       product: productInDb.name,
-      brand: productInDb.brand,
+      brand: brandValue,
       quantity: parseInt(quantity),
       price: totalAmount, // Use calculated price instead of manual input
       pointsEarned,
@@ -137,7 +150,7 @@ router.post('/', auth, upload.single('receipt'), async (req, res) => {
       netAmount: pointsEarned,
       status: 'pending',
       details: {
-        description: `Продажа ${productInDb.name} (${productInDb.brand})`
+        description: `Продажа ${productInDb.name} (${brandValue})`
       }
     })
 

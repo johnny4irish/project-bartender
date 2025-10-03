@@ -13,6 +13,7 @@
     "*.log"
   ],
   "ext": "js,json",
+  "delay": "500ms",
   "env": {
     "NODE_ENV": "development"
   }

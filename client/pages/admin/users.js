@@ -12,6 +12,7 @@ const AdminUsers = () => {
   const [error, setError] = useState('');
   const [editingUser, setEditingUser] = useState(null);
   const [showEditModal, setShowEditModal] = useState(false);
+  const [roles, setRoles] = useState([]);
 
   const fetchUsers = async () => {
     try {
@@ -56,6 +57,43 @@ const AdminUsers = () => {
     }
   };
 
+  const fetchRoles = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      // Пытаемся получить полный список ролей (для админа)
+      let response = await fetch('/api/admin/roles', {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      // Если нет прав (403/401), используем публичный список активных ролей
+      if (response.status === 403 || response.status === 401) {
+        response = await fetch('/api/data/roles');
+      }
+
+      if (!response.ok) {
+        console.warn('Не удалось загрузить роли, используем пустой список');
+        setRoles([]);
+        return;
+      }
+
+      const data = await response.json();
+      setRoles(Array.isArray(data) ? data : []);
+    } catch (err) {
+      console.warn('Ошибка загрузки ролей:', err);
+      // Дополнительный фолбэк на публичный список
+      try {
+        const resp = await fetch('/api/data/roles');
+        if (resp.ok) {
+          const data = await resp.json();
+          setRoles(Array.isArray(data) ? data : []);
+        }
+      } catch (_) {}
+    }
+  };
+
   useEffect(() => {
     const token = localStorage.getItem('token');
     if (!token) {
@@ -65,7 +103,7 @@ const AdminUsers = () => {
 
     const loadData = async () => {
       setIsLoading(true);
-      await Promise.all([fetchCurrentUser(), fetchUsers()]);
+      await Promise.all([fetchCurrentUser(), fetchUsers(), fetchRoles()]);
       setIsLoading(false);
     };
 
@@ -161,26 +199,67 @@ const AdminUsers = () => {
   const getRoleText = (role) => {
     // Если роль - строка
     if (typeof role === 'string') {
+      // Если это ObjectId, пытаемся найти роль в загруженном списке
+      if (role.length === 24 && Array.isArray(roles) && roles.length > 0) {
+        const found = roles.find(r => r._id === role);
+        if (found) return found.displayName || found.name || 'Неизвестная роль';
+      }
       switch (role) {
         case 'admin': return 'Администратор';
-        case 'brand_representative': return 'Представитель бренда';
+        case 'brand_representative': return 'Производитель/Дистрибьютор';
+        case 'bar_manager': return 'Менеджер бара';
+        case 'test_bartender': return 'Тест-бармен';
         case 'bartender': return 'Бармен';
         default: return role;
       }
     }
     
-    // Если роль - объект с полем name или displayName
+    // Если роль - объект
     if (role && typeof role === 'object') {
+      // Если это объект роли с _id — попробуем найти в списке ролей
+      if ((role._id || role.toString) && Array.isArray(roles) && roles.length > 0) {
+        const roleId = role._id || role.toString();
+        if (typeof roleId === 'string' && roleId.length === 24) {
+          const found = roles.find(r => r._id === roleId);
+          if (found) return found.displayName || found.name || 'Неизвестная роль';
+        }
+      }
       const roleName = role.name || role.displayName;
       switch (roleName) {
         case 'admin': return 'Администратор';
-        case 'brand_representative': return 'Представитель бренда';
+        case 'brand_representative': return 'Производитель/Дистрибьютор';
+        case 'bar_manager': return 'Менеджер бара';
+        case 'test_bartender': return 'Тест-бармен';
         case 'bartender': return 'Бармен';
         default: return roleName || 'Неизвестная роль';
       }
     }
     
     return 'Неизвестная роль';
+  };
+
+  const getRoleNameValue = (role) => {
+    if (!role) return '';
+    if (typeof role === 'string') {
+      // Если это ObjectId — сопоставляем через загруженные роли
+      if (role.length === 24 && Array.isArray(roles) && roles.length > 0) {
+        const found = roles.find(r => r._id === role);
+        return found ? (found.name || '') : '';
+      }
+      return role;
+    }
+    // Если это объект роли
+    if (role && typeof role === 'object') {
+      if ((role._id || role.toString) && Array.isArray(roles) && roles.length > 0) {
+        const roleId = role._id || role.toString();
+        if (typeof roleId === 'string' && roleId.length === 24) {
+          const found = roles.find(r => r._id === roleId);
+          if (found) return found.name || '';
+        }
+      }
+      return role.name || '';
+    }
+    return '';
   };
 
   const getRoleColor = (role) => {
@@ -390,13 +469,20 @@ const AdminUsers = () => {
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                        userItem.role === 'admin' ? 'bg-purple-100 text-purple-800' :
-                        userItem.role === 'brand_representative' ? 'bg-blue-100 text-blue-800' :
-                        'bg-green-100 text-green-800'
-                      }`}>
-                        {getRoleText(userItem.role)}
-                      </span>
+                      {(() => {
+                        const roleName = getRoleNameValue(userItem.role);
+                        const badgeClass =
+                          roleName === 'admin' ? 'bg-purple-100 text-purple-800' :
+                          roleName === 'brand_representative' ? 'bg-blue-100 text-blue-800' :
+                          roleName === 'bar_manager' ? 'bg-yellow-100 text-yellow-800' :
+                          roleName === 'test_bartender' ? 'bg-gray-100 text-gray-800' :
+                          'bg-green-100 text-green-800';
+                        return (
+                          <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${badgeClass}`}>
+                            {getRoleText(userItem.role)}
+                          </span>
+                        );
+                      })()}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                       {userItem.points || 0}
@@ -485,13 +571,24 @@ const AdminUsers = () => {
                       Роль
                     </label>
                     <select
-                      value={editingUser.role}
-                      onChange={(e) => setEditingUser({...editingUser, role: e.target.value})}
+                      value={typeof editingUser.role === 'string' ? editingUser.role : (editingUser.role?.name || '')}
+                      onChange={(e) => setEditingUser({ ...editingUser, role: e.target.value })}
                       className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                     >
-                      <option value="bartender">Бармен</option>
-                      <option value="brand_representative">Представитель бренда</option>
-                      <option value="admin">Администратор</option>
+                      {roles.length > 0 ? (
+                        roles.map((r) => (
+                          <option key={r._id || r.name} value={r.name}>
+                            {r.displayName || getRoleText(r.name)}
+                          </option>
+                        ))
+                      ) : (
+                        <>
+                          <option value="bartender">Бармен</option>
+                          <option value="brand_representative">Производитель/Дистрибьютор</option>
+                          <option value="bar_manager">Менеджер бара</option>
+                          <option value="admin">Администратор</option>
+                        </>
+                      )}
                     </select>
                   </div>
                   {editingUser.role === 'bartender' && (

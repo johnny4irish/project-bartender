@@ -3,11 +3,14 @@ import { useRouter } from 'next/router';
 import Link from 'next/link';
 import Button from '../../components/ui/Button';
 import { authAPI } from '../../utils/api';
+import { resolveDisplayName } from '../../lib/utils'
 
 const AdminProducts = () => {
   const router = useRouter();
   const [user, setUser] = useState(null);
   const [products, setProducts] = useState([]);
+  const [brandMap, setBrandMap] = useState({});
+  const [categoryMap, setCategoryMap] = useState({});
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
   const [showModal, setShowModal] = useState(false);
@@ -57,6 +60,53 @@ const AdminProducts = () => {
     fetchCurrentUser();
     fetchProducts();
   }, [router, filters, pagination.current]);
+
+  useEffect(() => {
+    const fetchBrands = async () => {
+      try {
+        const res = await fetch('/api/data/brands');
+        if (res.ok) {
+          const brands = await res.json();
+          const map = {};
+          (brands || []).forEach(b => {
+            if (b && (b._id || b.id)) {
+              map[b._id || b.id] = b.displayName || b.name || 'Без имени';
+            }
+          });
+          setBrandMap(map);
+        }
+      } catch (error) {
+        console.error('Ошибка загрузки брендов:', error);
+      }
+    };
+    fetchBrands();
+  }, []);
+
+  useEffect(() => {
+    const fetchCategories = async () => {
+      try {
+        const token = localStorage.getItem('token');
+        const res = await fetch('/api/admin/categories', {
+          headers: {
+            'x-auth-token': token
+          }
+        });
+        if (res.ok) {
+          const categories = await res.json();
+          const map = {};
+          (categories || []).forEach(c => {
+            if (c && (c._id || c.id)) {
+              map[c._id || c.id] = c.displayName || c.name || 'Без категории';
+            }
+          });
+          setCategoryMap(map);
+        }
+      } catch (error) {
+        console.error('Ошибка загрузки категорий:', error);
+      }
+    };
+    fetchCategories();
+  }, []);
 
   const fetchCurrentUser = async () => {
     try {
@@ -247,10 +297,21 @@ const AdminProducts = () => {
     router.push('/admin/login');
   };
 
+  // Универсальные резолверы отображаемых значений
+  const resolveBrandName = (brand) => resolveDisplayName(brand, brandMap)
+  const resolveCategoryName = (category) => {
+    const mapped = resolveDisplayName(category, categoryMap)
+    if (mapped && mapped !== category) return mapped
+    const local = categories.find(cat => cat.value === category)?.label
+    return local || mapped
+  }
+
   const getRoleText = (role) => {
     switch (role) {
       case 'admin': return 'Администратор';
       case 'brand_representative': return 'Представитель бренда';
+      case 'bar_manager': return 'Менеджер бара';
+      case 'test_bartender': return 'Тест-бармен';
       default: return role;
     }
   };
@@ -338,7 +399,9 @@ const AdminProducts = () => {
                   {(() => {
                     const roleMap = {
                       'admin': 'Администратор',
-                      'brand_rep': 'Представитель бренда',
+                      'brand_representative': 'Представитель бренда',
+                      'bar_manager': 'Менеджер бара',
+                      'test_bartender': 'Тест-бармен',
                       'bartender': 'Бармен'
                     };
                     return roleMap[user.role?.name] || user.role?.name || 'Пользователь';
@@ -439,12 +502,12 @@ const AdminProducts = () => {
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div>
                         <div className="text-sm font-medium text-gray-900">{product.name}</div>
-                        <div className="text-sm text-gray-500">{product.brand}</div>
+                        <div className="text-sm text-gray-500">{resolveBrandName(product.brand)}</div>
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <span className="text-sm text-gray-900">
-                        {categories.find(cat => cat.value === product.category)?.label || product.category}
+                        {resolveCategoryName(product.category)}
                       </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
@@ -526,9 +589,9 @@ const AdminProducts = () => {
                 <div className="flex justify-between items-start mb-4">
                   <div className="flex-1">
                     <h3 className="text-lg font-medium text-gray-900">{product.name}</h3>
-                    <p className="text-sm text-gray-600">{product.brand}</p>
+                    <p className="text-sm text-gray-600">{resolveBrandName(product.brand)}</p>
                     <p className="text-sm text-gray-500 mt-1">
-                      {categories.find(cat => cat.value === product.category)?.label || product.category}
+                      {resolveCategoryName(product.category)}
                     </p>
                   </div>
                   <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${

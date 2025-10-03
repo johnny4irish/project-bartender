@@ -3,6 +3,15 @@
  * Централизованная логика проверки ролей для всего приложения
  */
 
+// Базовые роли приложения
+const Roles = {
+  ADMIN: 'admin',
+  MANUFACTURER: 'brand_representative',
+  BAR: 'bar_manager',
+  BARTENDER: 'bartender',
+  TEST_BARTENDER: 'test_bartender',
+};
+
 /**
  * Получает название роли из различных форматов
  * @param {string|Object} role - Роль пользователя (строка, ObjectId или объект роли)
@@ -75,6 +84,17 @@ function isBartender(user) {
 }
 
 /**
+ * Проверяет, является ли пользователь менеджером бара
+ * @param {Object} user - Объект пользователя
+ * @returns {boolean} - true если пользователь менеджер бара
+ */
+function isBarManager(user) {
+  if (!user || !user.role) return false;
+  const roleName = getRoleName(user.role);
+  return roleName === 'bar_manager' || roleName === 'bar';
+}
+
+/**
  * Получает отображаемое название роли на русском языке
  * @param {string|Object} role - Роль пользователя
  * @returns {string} - Отображаемое название роли
@@ -86,7 +106,9 @@ function getRoleDisplayName(role) {
     case 'admin':
       return 'Администратор';
     case 'brand_representative':
-      return 'Представитель бренда';
+      return 'Производитель/Дистрибьютор';
+    case 'bar_manager':
+      return 'Менеджер бара';
     case 'bartender':
     case 'test_bartender':
       return 'Бармен';
@@ -150,7 +172,59 @@ async function hasAdminAccessAsync(user) {
   if (!user || !user.role) return false;
   
   const roleName = await getRoleNameAsync(user.role);
-  return roleName === 'admin' || roleName === 'brand_representative';
+  return roleName === Roles.ADMIN || roleName === Roles.MANUFACTURER;
+}
+
+/**
+ * Асинхронная проверка доступа к модерации продаж
+ * Разрешено: администратор, представитель бренда, менеджер бара
+ * @param {Object} user - Объект пользователя
+ * @returns {Promise<boolean>} - true если пользователь имеет доступ к модерации
+ */
+async function hasModerationAccessAsync(user) {
+  if (!user || !user.role) return false;
+  const roleName = await getRoleNameAsync(user.role);
+  return roleName === Roles.ADMIN || roleName === Roles.MANUFACTURER || roleName === Roles.BAR;
+}
+
+/**
+ * Построение scope‑фильтра для ресурсов по роли пользователя
+ * Возвращает объект фильтра для MongoDB/Mongoose
+ * @param {Object} user
+ * @param {string} [resource='sales']
+ * @returns {Object}
+ */
+function buildScopeFilter(user, resource = 'sales') {
+  const roleName = getRoleName(user.role);
+  if (!roleName) return {};
+
+  // Администратор — без ограничений
+  if (roleName === Roles.ADMIN) return {};
+
+  // Представитель бренда — ограничение по брендам
+  if (roleName === Roles.MANUFACTURER) {
+    // В текущей модели продажи хранят brand как строку
+    // Ожидаем наличие user.brandNames (список строк) или user.brandIds для будущих расширений
+    const brandNames = Array.isArray(user.brandNames) ? user.brandNames : [];
+    if (brandNames.length > 0) {
+      return { brand: { $in: brandNames } };
+    }
+    // Если привязки брендов нет — возвращаем пустой результат по умолчанию
+    // чтобы не раскрывать чужие данные
+    return { brand: '__none__' };
+  }
+
+  // Менеджер бара — ограничение по заведению
+  if (roleName === Roles.BAR || roleName === 'bar') {
+    return { bar: user.bar };
+  }
+
+  // Бармен — ограничение по пользователю
+  if (roleName === Roles.BARTENDER || roleName === Roles.TEST_BARTENDER) {
+    return { user: user._id || user.id };
+  }
+
+  return {};
 }
 
 module.exports = {
@@ -159,7 +233,11 @@ module.exports = {
   isAdmin,
   isBrandRepresentative,
   isBartender,
+  isBarManager,
   hasAdminAccess,
   hasAdminAccessAsync,
-  getRoleDisplayName
+  hasModerationAccessAsync,
+  getRoleDisplayName,
+  Roles,
+  buildScopeFilter
 };
