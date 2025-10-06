@@ -47,10 +47,10 @@ const imageFilter = function (req, file, cb) {
 
 const prizeUpload = multer({ storage, fileFilter: imageFilter })
 
-// Get the bartender role ObjectId
-const getBartenderRoleId = async () => {
-  const bartenderRole = await Role.findOne({ name: 'test_bartender' });
-  return bartenderRole ? bartenderRole._id : null;
+// Get bartender role ObjectIds (supports both 'bartender' and 'test_bartender')
+const getBartenderRoleIds = async () => {
+  const roles = await Role.find({ name: { $in: ['bartender', 'test_bartender'] } });
+  return roles.map(r => r._id);
 };
 
 // Импортируем утилиты для работы с ролями
@@ -103,22 +103,22 @@ const moderationAuth = async (req, res, next) => {
 // @access  Private (Admin/Brand Rep)
 router.get('/dashboard', [auth, adminAuth], async (req, res) => {
   try {
-    // Get the bartender role ObjectId
-    const bartenderRoleId = await getBartenderRoleId();
+    // Get bartender role ObjectIds
+    const bartenderRoleIds = await getBartenderRoleIds();
     
     // Общее количество пользователей (всех ролей)
     const totalUsers = await User.countDocuments()
     
     // Количество барменов
-    const totalBartenders = bartenderRoleId ? await User.countDocuments({ role: bartenderRoleId }) : 0
+    const totalBartenders = bartenderRoleIds.length ? await User.countDocuments({ role: { $in: bartenderRoleIds } }) : 0
     
     // Статистика продаж
     const totalSales = await Sale.countDocuments()
     const pendingSales = await Sale.countDocuments({ verificationStatus: 'pending' })
     
     // Общие баллы барменов
-    const totalPoints = bartenderRoleId ? await User.aggregate([
-      { $match: { role: bartenderRoleId } },
+    const totalPoints = bartenderRoleIds.length ? await User.aggregate([
+      { $match: { role: { $in: bartenderRoleIds } } },
       { $group: { _id: null, total: { $sum: '$points' } } }
     ]) : []
 
@@ -134,7 +134,7 @@ router.get('/dashboard', [auth, adminAuth], async (req, res) => {
       .limit(10)
 
     // Топ барменов с агрегацией продаж (для in-memory базы)
-    const bartenders = bartenderRoleId ? await User.find({ role: bartenderRoleId }).limit(10) : []
+    const bartenders = bartenderRoleIds.length ? await User.find({ role: { $in: bartenderRoleIds } }).limit(10) : []
     const { collections } = require('../config/db')
     const allSales = Array.from(collections.sales.values())
     

@@ -1,6 +1,8 @@
 const express = require('express')
 const router = express.Router()
 const { getModel, checkConnection } = require('../models/ModelFactory')
+const fs = require('fs')
+const path = require('path')
 
 // Get models from ModelFactory
 const City = getModel('City')
@@ -15,12 +17,19 @@ const Brand = getModel('Brand')
 router.get('/cities', async (req, res) => {
   try {
     if (!checkConnection()) {
-      return res.json([])
+      // Фолбэк к локальному экспорту
+      const filePath = path.join(__dirname, '..', 'atlas-export', 'city.json')
+      try {
+        const raw = fs.readFileSync(filePath, 'utf8')
+        const data = JSON.parse(raw)
+        const cities = Array.isArray(data) ? data.map(c => ({ _id: c._id || c.id || c._doc?._id, name: c.name })) : []
+        return res.json(cities)
+      } catch (e) {
+        console.warn('Fallback cities load failed:', e.message)
+        return res.json([])
+      }
     }
-    console.log('Cities endpoint called - fetching cities...')
     const cities = await City.find().select('_id name')
-    console.log('Cities found:', cities.length)
-    console.log('Cities data:', JSON.stringify(cities, null, 2))
     res.json(cities)
   } catch (err) {
     console.error('Error fetching cities:', err.message)
@@ -34,7 +43,16 @@ router.get('/cities', async (req, res) => {
 router.get('/bars', async (req, res) => {
   try {
     if (!checkConnection()) {
-      return res.json([])
+      const filePath = path.join(__dirname, '..', 'atlas-export', 'bar.json')
+      try {
+        const raw = fs.readFileSync(filePath, 'utf8')
+        const data = JSON.parse(raw)
+        const bars = Array.isArray(data) ? data.map(b => ({ _id: b._id || b.id || b._doc?._id, name: b.name, city: b.city })) : []
+        return res.json(bars)
+      } catch (e) {
+        console.warn('Fallback bars load failed:', e.message)
+        return res.json([])
+      }
     }
     const bars = await Bar.find().select('_id name city').populate('city', 'name')
     res.json(bars)
@@ -50,7 +68,16 @@ router.get('/bars', async (req, res) => {
 router.get('/roles', async (req, res) => {
   try {
     if (!checkConnection()) {
-      return res.json([])
+      const filePath = path.join(__dirname, '..', 'atlas-export', 'role.json')
+      try {
+        const raw = fs.readFileSync(filePath, 'utf8')
+        const data = JSON.parse(raw)
+        const roles = Array.isArray(data) ? data.map(r => ({ _id: r._id || r.id || r._doc?._id, name: r.name, displayName: r.displayName || r.name })) : []
+        return res.json(roles)
+      } catch (e) {
+        console.warn('Fallback roles load failed:', e.message)
+        return res.json([])
+      }
     }
     const roles = await Role.getActive().select('_id name displayName')
     res.json(roles)
@@ -66,7 +93,25 @@ router.get('/roles', async (req, res) => {
 router.get('/products', async (req, res) => {
   try {
     if (!checkConnection()) {
-      return res.json([])
+      const filePath = path.join(__dirname, '..', 'data', 'products.json')
+      try {
+        const raw = fs.readFileSync(filePath, 'utf8')
+        const data = JSON.parse(raw)
+        const products = Array.isArray(data) ? data.map(p => ({
+          _id: p._id || p.id || p._doc?._id,
+          name: p.name,
+          brand: p.brand,
+          category: p.category,
+          pointsPerRuble: p.pointsPerRuble,
+          pointsCalculationType: p.pointsCalculationType,
+          pointsPerPortion: p.pointsPerPortion,
+          portionSizeGrams: p.portionSizeGrams
+        })) : []
+        return res.json(products)
+      } catch (e) {
+        console.warn('Fallback products load failed:', e.message)
+        return res.json([])
+      }
     }
     const products = await Product.find({ isActive: true })
       .select('_id name brand category pointsPerRuble pointsCalculationType pointsPerPortion portionSizeGrams')
@@ -84,7 +129,16 @@ router.get('/products', async (req, res) => {
 router.get('/brands', async (req, res) => {
   try {
     if (!checkConnection()) {
-      return res.json([])
+      const filePath = path.join(__dirname, '..', 'atlas-export', 'brand.json')
+      try {
+        const raw = fs.readFileSync(filePath, 'utf8')
+        const data = JSON.parse(raw)
+        const brands = Array.isArray(data) ? data.map(b => ({ _id: b._id || b.id || b._doc?._id, name: b.name, displayName: b.displayName || b.name })) : []
+        return res.json(brands)
+      } catch (e) {
+        console.warn('Fallback brands load failed:', e.message)
+        return res.json([])
+      }
     }
     const brands = await Brand.find()
       .select('_id name displayName')

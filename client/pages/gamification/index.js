@@ -5,12 +5,25 @@ import { useAuth } from '../../context/AuthContext'
 import axios from 'axios'
 import { toast } from 'react-toastify'
 
-const GamificationDashboard = () => {
+const GamificationDashboard = ({ leaderboardHtml }) => {
   const { user, loading } = useAuth()
   const router = useRouter()
   const [stats, setStats] = useState({})
   const [recentAchievements, setRecentAchievements] = useState([])
   const [isLoading, setIsLoading] = useState(true)
+  const [showLeaderboardModal, setShowLeaderboardModal] = useState(false)
+
+  const hasAdminAccess = (u) => {
+    if (!u || !u.role) return false
+    return u.role === 'admin' || u.role === 'brand_representative'
+  }
+
+  const handleLeaderboardClick = (e) => {
+    if (hasAdminAccess(user)) {
+      e.preventDefault()
+      setShowLeaderboardModal(true)
+    }
+  }
 
   useEffect(() => {
     if (!loading && !user) {
@@ -149,7 +162,7 @@ const GamificationDashboard = () => {
           </Link>
 
           <Link href="/gamification/leaderboard">
-            <div className="bg-white rounded-lg shadow hover:shadow-lg transition-shadow cursor-pointer p-6">
+            <div className="bg-white rounded-lg shadow hover:shadow-lg transition-shadow cursor-pointer p-6" onClick={handleLeaderboardClick}>
               <div className="text-center">
                 <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
                   <span className="text-2xl">📊</span>
@@ -206,8 +219,35 @@ const GamificationDashboard = () => {
           </div>
         )}
       </div>
+      {showLeaderboardModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-lg w-full max-w-3xl p-6 relative">
+            <button
+              onClick={() => setShowLeaderboardModal(false)}
+              className="absolute top-3 right-3 text-gray-500 hover:text-gray-700"
+              aria-label="Закрыть"
+            >
+              ✕
+            </button>
+            <div className="prose max-w-none" dangerouslySetInnerHTML={{ __html: leaderboardHtml || '' }} />
+          </div>
+        </div>
+      )}
     </div>
   )
 }
 
 export default GamificationDashboard
+
+export async function getServerSideProps() {
+  let leaderboardHtml = ''
+  try {
+    const fs = require('fs')
+    const path = require('path')
+    const filePath = path.join(process.cwd(), '..', '101.txt')
+    leaderboardHtml = fs.readFileSync(filePath, 'utf-8')
+  } catch (err) {
+    leaderboardHtml = '<div style="color:red">Не удалось загрузить контент рейтинга (101.txt)</div>'
+  }
+  return { props: { leaderboardHtml } }
+}

@@ -11,6 +11,8 @@ const Leaderboard = () => {
   const [userRank, setUserRank] = useState(null)
   const [period, setPeriod] = useState('all')
   const [isLoading, setIsLoading] = useState(true)
+  const [cityMap, setCityMap] = useState({})
+  const [barMap, setBarMap] = useState({})
 
   useEffect(() => {
     if (!loading && !user) {
@@ -35,6 +37,59 @@ const Leaderboard = () => {
       toast.error('Ошибка загрузки рейтинга')
     } finally {
       setIsLoading(false)
+    }
+  }
+
+  // Загружаем справочники городов и заведений, чтобы отображать текстовые значения
+  useEffect(() => {
+    const loadRefs = async () => {
+      try {
+        const [citiesRes, barsRes] = await Promise.all([
+          axios.get('/api/data/cities'),
+          axios.get('/api/data/bars')
+        ])
+        const cities = Array.isArray(citiesRes.data) ? citiesRes.data : []
+        const bars = Array.isArray(barsRes.data) ? barsRes.data : []
+        const cMap = {}
+        const bMap = {}
+        cities.forEach(c => { if (c && c._id) cMap[c._id] = c.name || c.displayName || '' })
+        bars.forEach(b => { if (b && b._id) bMap[b._id] = b.displayName || b.name || '' })
+        setCityMap(cMap)
+        setBarMap(bMap)
+      } catch (error) {
+        console.error('Ошибка загрузки справочников города/заведения:', error?.message || error)
+      }
+    }
+    loadRefs()
+  }, [])
+
+  const resolveCity = (city) => {
+    try {
+      if (!city) return 'Не указан'
+      if (typeof city === 'object') {
+        return city.name || city.displayName || 'Не указан'
+      }
+      if (typeof city === 'string') {
+        return cityMap[city] || 'Не указан'
+      }
+      return 'Не указан'
+    } catch (_) {
+      return 'Не указан'
+    }
+  }
+
+  const resolveBar = (bar) => {
+    try {
+      if (!bar) return 'Не указано'
+      if (typeof bar === 'object') {
+        return bar.displayName || bar.name || 'Не указано'
+      }
+      if (typeof bar === 'string') {
+        return barMap[bar] || 'Не указано'
+      }
+      return 'Не указано'
+    } catch (_) {
+      return 'Не указано'
     }
   }
 
@@ -214,10 +269,10 @@ const Leaderboard = () => {
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {participant.bar || 'Не указано'}
+                        {resolveBar(participant.bar)}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {participant.city || 'Не указан'}
+                        {resolveCity(participant.city)}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="flex items-center">

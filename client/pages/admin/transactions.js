@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import Link from 'next/link';
 import Button from '../../components/ui/Button';
-import { authAPI, adminAPI } from '../../utils/api';
+import { authAPI, adminAPI, API_BASE_URL } from '../../utils/api';
 
 const AdminTransactions = () => {
   const router = useRouter();
@@ -24,7 +24,7 @@ const AdminTransactions = () => {
   const fetchTransactions = async () => {
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch('/api/admin/transactions', {
+      const response = await fetch(`${API_BASE_URL}/api/admin/transactions`, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
@@ -60,7 +60,7 @@ const AdminTransactions = () => {
   const fetchCurrentUser = async () => {
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch('/api/auth/me', {
+      const response = await fetch(`${API_BASE_URL}/api/auth/me`, {
         headers: {
           'x-auth-token': token,
           'Content-Type': 'application/json'
@@ -81,7 +81,7 @@ const AdminTransactions = () => {
   useEffect(() => {
     const token = localStorage.getItem('token');
     if (!token) {
-      router.push('/admin/login');
+      router.push('/login');
       return;
     }
 

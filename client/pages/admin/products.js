@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import Link from 'next/link';
 import Button from '../../components/ui/Button';
-import { authAPI } from '../../utils/api';
+import { authAPI, API_BASE_URL } from '../../utils/api';
 import { resolveDisplayName } from '../../lib/utils'
 
 const AdminProducts = () => {
@@ -64,7 +64,7 @@ const AdminProducts = () => {
   useEffect(() => {
     const fetchBrands = async () => {
       try {
-        const res = await fetch('/api/data/brands');
+        const res = await fetch(`${API_BASE_URL}/api/data/brands`);
         if (res.ok) {
           const brands = await res.json();
           const map = {};
@@ -86,7 +86,7 @@ const AdminProducts = () => {
     const fetchCategories = async () => {
       try {
         const token = localStorage.getItem('token');
-        const res = await fetch('/api/admin/categories', {
+        const res = await fetch(`${API_BASE_URL}/api/admin/categories`, {
           headers: {
             'x-auth-token': token
           }
@@ -130,7 +130,7 @@ const AdminProducts = () => {
         ...(filters.category && { category: filters.category })
       });
 
-      const response = await fetch(`/api/admin/products?${queryParams}`, {
+      const response = await fetch(`${API_BASE_URL}/api/admin/products?${queryParams}`, {
         headers: {
           'x-auth-token': token
         }
@@ -152,7 +152,7 @@ const AdminProducts = () => {
   const handleToggleStatus = async (productId, currentStatus) => {
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch(`/api/admin/products/${productId}`, {
+      const response = await fetch(`${API_BASE_URL}/api/admin/products/${productId}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -192,8 +192,8 @@ const AdminProducts = () => {
       console.log('Token exists:', !!token);
       
       const url = editingProduct 
-        ? `/api/admin/products/${editingProduct._id}`
-        : '/api/admin/products';
+        ? `${API_BASE_URL}/api/admin/products/${editingProduct._id}`
+        : `${API_BASE_URL}/api/admin/products`;
       
       const method = editingProduct ? 'PUT' : 'POST';
       console.log('Request URL:', url);
@@ -294,7 +294,7 @@ const AdminProducts = () => {
 
   const handleLogout = () => {
     localStorage.removeItem('token');
-    router.push('/admin/login');
+    router.push('/login');
   };
 
   // Универсальные резолверы отображаемых значений

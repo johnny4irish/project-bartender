@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import Link from 'next/link';
 import Button from '../../components/ui/Button';
-import { authAPI, adminAPI } from '../../utils/api';
+import { authAPI, adminAPI, API_BASE_URL } from '../../utils/api';
 
 const AdminPrizes = () => {
   const router = useRouter();
@@ -35,7 +35,7 @@ const AdminPrizes = () => {
   useEffect(() => {
     const token = localStorage.getItem('token');
     if (!token) {
-      router.push('/admin/login');
+      router.push('/login');
       return;
     }
 
@@ -46,7 +46,7 @@ const AdminPrizes = () => {
   const fetchCurrentUser = async () => {
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch('/api/auth/me', {
+      const response = await fetch(`${API_BASE_URL}/api/auth/me`, {
         headers: {
           'x-auth-token': token
         }
@@ -56,18 +56,18 @@ const AdminPrizes = () => {
         const userData = await response.json();
         setUser(userData);
       } else {
-        router.push('/admin/login');
+        router.push('/login');
       }
     } catch (error) {
       console.error('Ошибка при получении данных пользователя:', error);
-      router.push('/admin/login');
+      router.push('/login');
     }
   };
 
   const fetchPrizes = async () => {
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch('/api/admin/prizes', {
+      const response = await fetch(`${API_BASE_URL}/api/admin/prizes`, {
         headers: {
           'x-auth-token': token
         }
@@ -108,7 +108,7 @@ const AdminPrizes = () => {
         formData.append('quantity', parseInt(newPrize.quantity));
         formData.append('image', newPrizeImage);
 
-        response = await fetch('/api/admin/prizes', {
+        response = await fetch(`${API_BASE_URL}/api/admin/prizes`, {
           method: 'POST',
           headers: {
             'x-auth-token': token
@@ -116,7 +116,7 @@ const AdminPrizes = () => {
           body: formData
         });
       } else {
-        response = await fetch('/api/admin/prizes', {
+        response = await fetch(`${API_BASE_URL}/api/admin/prizes`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -158,7 +158,7 @@ const AdminPrizes = () => {
   const handleEditPrize = async () => {
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch(`/api/admin/prizes/${editingPrize._id}`, {
+      const response = await fetch(`${API_BASE_URL}/api/admin/prizes/${editingPrize._id}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -194,7 +194,7 @@ const AdminPrizes = () => {
 
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch(`/api/admin/prizes/${prizeId}`, {
+      const response = await fetch(`${API_BASE_URL}/api/admin/prizes/${prizeId}`, {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${token}`

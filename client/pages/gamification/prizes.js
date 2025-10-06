@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/router'
 import { useAuth } from '../../context/AuthContext'
 import axios from 'axios'
+
+import { API_BASE_URL } from '../../utils/api'
 import { toast } from 'react-toastify'
 
 const Prizes = () => {
@@ -43,7 +45,7 @@ const Prizes = () => {
         }
       }
 
-      const res = await axios.get(`/api/gamification/prizes?${params.toString()}`, config)
+      const res = await axios.get(`${API_BASE_URL}/api/gamification/prizes?${params.toString()}`, config)
       setPrizes(res.data)
     } catch (error) {
       console.error('Ошибка загрузки призов:', error)
@@ -62,7 +64,7 @@ const Prizes = () => {
         }
       }
 
-      const res = await axios.get('/api/gamification/cart', config)
+      const res = await axios.get(`${API_BASE_URL}/api/gamification/cart`, config)
       setCart(res.data)
     } catch (error) {
       console.error('Ошибка загрузки корзины:', error)
@@ -79,7 +81,7 @@ const Prizes = () => {
         }
       }
 
-      const res = await axios.post(`/api/gamification/cart/add/${prizeId}`, { quantity: 1 }, config)
+      const res = await axios.post(`${API_BASE_URL}/api/gamification/cart/add/${prizeId}`, { quantity: 1 }, config)
       
       toast.success('Приз добавлен в корзину!')
       fetchCart()
@@ -102,9 +104,9 @@ const Prizes = () => {
       }
 
       if (newQuantity === 0) {
-        await axios.delete(`/api/gamification/cart/remove/${prizeId}`, config)
+        await axios.delete(`${API_BASE_URL}/api/gamification/cart/remove/${prizeId}`, config)
       } else {
-        await axios.put(`/api/gamification/cart/update/${prizeId}`, { quantity: newQuantity }, config)
+        await axios.put(`${API_BASE_URL}/api/gamification/cart/update/${prizeId}`, { quantity: newQuantity }, config)
       }
       
       fetchCart()
@@ -124,7 +126,7 @@ const Prizes = () => {
         }
       }
 
-      const res = await axios.post('/api/gamification/cart/checkout', {}, config)
+      const res = await axios.post(`${API_BASE_URL}/api/gamification/cart/checkout`, {}, config)
       
       toast.success('Заказ успешно оформлен!')
       setCart({ items: [], totalCost: 0 })

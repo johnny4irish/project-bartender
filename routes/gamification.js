@@ -9,11 +9,11 @@ const Cart = require('../models/Cart')
 const Order = require('../models/Order')
 const mongoose = require('mongoose');
 
-// Get the bartender role ObjectId
-const getBartenderRoleId = async () => {
+// Get bartender role ObjectIds (supports both 'bartender' and 'test_bartender')
+const getBartenderRoleIds = async () => {
   const Role = require('../models/Role');
-  const bartenderRole = await Role.findOne({ name: 'test_bartender' });
-  return bartenderRole ? bartenderRole._id : null;
+  const roles = await Role.find({ name: { $in: ['bartender', 'test_bartender'] } });
+  return roles.map(r => r._id);
 };
 
 // @route   GET /api/gamification/leaderboard
@@ -38,8 +38,8 @@ router.get('/leaderboard', auth, async (req, res) => {
     let leaderboard
     if (period === 'all') {
       // Общий рейтинг по всем баллам
-      const bartenderRoleId = await getBartenderRoleId();
-      const users = await User.find({ role: bartenderRoleId });
+      const bartenderRoleIds = await getBartenderRoleIds();
+      const users = await User.find({ role: { $in: bartenderRoleIds } });
       
       // Фильтруем активных пользователей и сортируем по очкам
       const activeUsers = users
@@ -73,10 +73,10 @@ router.get('/leaderboard', auth, async (req, res) => {
       
       // Получаем информацию о пользователях
       const userIds = Array.from(userPointsMap.keys());
-      const bartenderRoleId = await getBartenderRoleId();
+      const bartenderRoleIds = await getBartenderRoleIds();
       const users = await User.find({ 
         _id: { $in: userIds },
-        role: bartenderRoleId
+        role: { $in: bartenderRoleIds }
       });
       
       // Создаем рейтинг за период
@@ -109,8 +109,8 @@ router.get('/leaderboard', auth, async (req, res) => {
 
     // Найти позицию текущего пользователя
     let userRank = null
-    const bartenderRoleId = await getBartenderRoleId();
-    if (req.user.role && req.user.role.toString() === bartenderRoleId.toString()) {
+    const bartenderRoleIds = await getBartenderRoleIds();
+    if (req.user.role && bartenderRoleIds.map(id => id.toString()).includes(req.user.role.toString())) {
       console.log('=== LEADERBOARD USER RANK DEBUG ===')
       console.log('Current user ID:', req.user.id)
       console.log('Leaderboard users:', leaderboardWithRank.map(u => ({ id: u._id?.toString() || u._id, name: u.name })))
@@ -135,8 +135,8 @@ router.get('/leaderboard', auth, async (req, res) => {
           console.log('Current user points:', currentUserPoints)
           
           // Подсчитываем пользователей с большим количеством очков
-          const bartenderRoleId = await getBartenderRoleId();
-          const users = await User.find({ role: bartenderRoleId });
+          const bartenderRoleIds = await getBartenderRoleIds();
+          const users = await User.find({ role: { $in: bartenderRoleIds } });
           const activeUsers = users.filter(user => user.isActive !== false);
           totalUsers = activeUsers.filter(user => (user.points || 0) > currentUserPoints).length;
           

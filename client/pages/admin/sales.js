@@ -3,7 +3,7 @@ import { useRouter } from 'next/router';
 import Link from 'next/link';
 import Button from '../../components/ui/Button';
 import { resolveDisplayName } from '../../lib/utils'
-import { authAPI, adminAPI } from '../../utils/api';
+import { authAPI, adminAPI, API_BASE_URL } from '../../utils/api';
 
 const AdminSales = () => {
   const router = useRouter();
@@ -30,7 +30,7 @@ const AdminSales = () => {
       const token = localStorage.getItem('token');
       console.log('Fetching sales with token:', token ? 'Token exists' : 'No token');
       
-      const response = await fetch('/api/admin/sales', {
+      const response = await fetch(`${API_BASE_URL}/api/admin/sales`, {
         headers: {
           'x-auth-token': token,
           'Content-Type': 'application/json'
@@ -76,7 +76,7 @@ const AdminSales = () => {
   const fetchCurrentUser = async () => {
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch('/api/auth/me', {
+      const response = await fetch(`${API_BASE_URL}/api/auth/me`, {
         headers: {
           'x-auth-token': token,
           'Content-Type': 'application/json'
@@ -97,7 +97,7 @@ const AdminSales = () => {
   useEffect(() => {
     const token = localStorage.getItem('token');
     if (!token) {
-      router.push('/admin/login');
+      router.push('/login');
       return;
     }
 
@@ -112,9 +112,16 @@ const AdminSales = () => {
 
   // Загружаем справочник баров для отображения названий вместо ObjectId
   useEffect(() => {
+    // Если нет токена, эффект пропускаем, чтобы избежать отмены запроса при редиректе
+    const token = (typeof window !== 'undefined') ? window.localStorage.getItem('token') : null;
+    if (!token) {
+      return; // пользователь не авторизован, редирект произойдёт выше
+    }
+
+    const controller = new AbortController();
     const fetchBars = async () => {
       try {
-        const res = await fetch('/api/data/bars');
+        const res = await fetch(`${API_BASE_URL}/api/data/bars`, { signal: controller.signal });
         if (res.ok) {
           const bars = await res.json();
           const map = {};
@@ -127,10 +134,13 @@ const AdminSales = () => {
           setBarMap(map);
         }
       } catch (err) {
+        // Игнорируем отмену запроса при смене страницы
+        if (err && (err.name === 'AbortError' || err.code === 'ABORT_ERR')) return;
         console.error('Ошибка загрузки баров:', err);
       }
     };
     fetchBars();
+    return () => controller.abort();
   }, []);
 
   const handleLogout = () => {
@@ -143,7 +153,7 @@ const AdminSales = () => {
       const token = localStorage.getItem('token');
       console.log('Approving sale:', saleId, 'with token:', token ? 'Token exists' : 'No token');
       
-      const response = await fetch(`/api/admin/sales/${saleId}/verify`, {
+      const response = await fetch(`${API_BASE_URL}/api/admin/sales/${saleId}/verify`, {
         method: 'PUT',
         headers: {
           'x-auth-token': token,
@@ -178,7 +188,7 @@ const AdminSales = () => {
       const token = localStorage.getItem('token');
       console.log('Rejecting sale:', saleId, 'with token:', token ? 'Token exists' : 'No token');
       
-      const response = await fetch(`/api/admin/sales/${saleId}/verify`, {
+      const response = await fetch(`${API_BASE_URL}/api/admin/sales/${saleId}/verify`, {
         method: 'PUT',
         headers: {
           'x-auth-token': token,
@@ -347,7 +357,7 @@ const AdminSales = () => {
         )}
 
         {/* Statistics Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-6 gap-6 mb-8">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-6 mb-8">
           <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-6">
             <div className="flex items-center">
               <div className="flex-shrink-0">
@@ -357,9 +367,9 @@ const AdminSales = () => {
                   </svg>
                 </div>
               </div>
-              <div className="ml-5 w-0 flex-1">
+              <div className="ml-5 flex-1 min-w-0 overflow-hidden">
                 <dl>
-                  <dt className="text-sm font-medium text-gray-500 truncate">Всего продаж</dt>
+                  <dt className="text-sm font-medium text-gray-600 whitespace-normal break-words">Всего продаж</dt>
                   <dd className="text-lg font-medium text-gray-900">{stats.totalSales}</dd>
                 </dl>
               </div>
@@ -375,9 +385,9 @@ const AdminSales = () => {
                   </svg>
                 </div>
               </div>
-              <div className="ml-5 w-0 flex-1">
+              <div className="ml-5 flex-1 min-w-0 overflow-hidden">
                 <dl>
-                  <dt className="text-sm font-medium text-gray-500 truncate">На рассмотрении</dt>
+                  <dt className="text-sm font-medium text-gray-600 whitespace-normal break-words">На рассмотрении</dt>
                   <dd className="text-lg font-medium text-gray-900">{stats.pendingSales}</dd>
                 </dl>
               </div>
@@ -393,9 +403,9 @@ const AdminSales = () => {
                   </svg>
                 </div>
               </div>
-              <div className="ml-5 w-0 flex-1">
+              <div className="ml-5 flex-1 min-w-0 overflow-hidden">
                 <dl>
-                  <dt className="text-sm font-medium text-gray-500 truncate">Одобрено</dt>
+                  <dt className="text-sm font-medium text-gray-600 whitespace-normal break-words">Одобрено</dt>
                   <dd className="text-lg font-medium text-gray-900">{stats.approvedSales}</dd>
                 </dl>
               </div>
@@ -411,9 +421,9 @@ const AdminSales = () => {
                   </svg>
                 </div>
               </div>
-              <div className="ml-5 w-0 flex-1">
+              <div className="ml-5 flex-1 min-w-0 overflow-hidden">
                 <dl>
-                  <dt className="text-sm font-medium text-gray-500 truncate">Отклонено</dt>
+                  <dt className="text-sm font-medium text-gray-600 whitespace-normal break-words">Отклонено</dt>
                   <dd className="text-lg font-medium text-gray-900">{stats.rejectedSales}</dd>
                 </dl>
               </div>
@@ -429,9 +439,9 @@ const AdminSales = () => {
                   </svg>
                 </div>
               </div>
-              <div className="ml-5 w-0 flex-1">
+              <div className="ml-5 flex-1 min-w-0 overflow-hidden">
                 <dl>
-                  <dt className="text-sm font-medium text-gray-500 truncate">Общий доход</dt>
+                  <dt className="text-sm font-medium text-gray-600 whitespace-normal break-words">Общий доход</dt>
                   <dd className="text-lg font-medium text-gray-900">{stats.totalRevenue.toLocaleString()} ₽</dd>
                 </dl>
               </div>
@@ -447,9 +457,9 @@ const AdminSales = () => {
                   </svg>
                 </div>
               </div>
-              <div className="ml-5 w-0 flex-1">
+              <div className="ml-5 flex-1 min-w-0 overflow-hidden">
                 <dl>
-                  <dt className="text-sm font-medium text-gray-500 truncate">Средняя продажа</dt>
+                  <dt className="text-sm font-medium text-gray-600 whitespace-normal break-words">Средняя продажа</dt>
                   <dd className="text-lg font-medium text-gray-900">{stats.averageSale.toLocaleString()} ₽</dd>
                 </dl>
               </div>

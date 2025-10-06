@@ -3,6 +3,7 @@ import { useAuth } from '../../context/AuthContext'
 import { useRouter } from 'next/router'
 import Link from 'next/link'
 import axios from 'axios'
+import { API_BASE_URL } from '../../utils/api'
 import { toast } from 'react-toastify'
 
 const SalesHistory = () => {
@@ -34,7 +35,7 @@ const SalesHistory = () => {
         }
       }
 
-      const res = await axios.get(`/api/sales?page=${currentPage}&limit=10`, config)
+      const res = await axios.get(`${API_BASE_URL}/api/sales?page=${currentPage}&limit=10`, config)
       setSales(res.data.sales)
       setPagination(res.data.pagination)
     } catch (error) {
@@ -53,7 +54,7 @@ const SalesHistory = () => {
         }
       }
 
-      const res = await axios.get('/api/sales/stats', config)
+      const res = await axios.get(`${API_BASE_URL}/api/sales/stats`, config)
       setStats(res.data)
     } catch (error) {
       console.error(error)
@@ -62,7 +63,7 @@ const SalesHistory = () => {
 
   const fetchBrands = async () => {
     try {
-      const res = await axios.get('/api/data/brands')
+      const res = await axios.get(`${API_BASE_URL}/api/data/brands`)
       const brands = res.data || []
       const map = {}
       brands.forEach(b => {
@@ -162,7 +163,7 @@ const SalesHistory = () => {
         {stats && (
           <div className="px-4 py-6 sm:px-0">
             <h2 className="text-lg font-medium text-gray-900 mb-4">Статистика продаж</h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-6">
               <div className="bg-white rounded-lg p-6 border border-gray-200 shadow-sm">
                 <div className="flex items-center">
                   <div className="flex-shrink-0">
@@ -172,8 +173,8 @@ const SalesHistory = () => {
                       </svg>
                     </div>
                   </div>
-                  <div className="ml-4">
-                    <p className="text-sm font-medium text-gray-600">Всего продаж</p>
+                  <div className="ml-4 flex-1 min-w-0 overflow-hidden">
+                    <p className="text-sm font-medium text-gray-600 whitespace-normal break-words">Всего продаж</p>
                     <p className="text-2xl font-bold text-gray-900">{stats.totalSales}</p>
                   </div>
                 </div>
@@ -188,8 +189,8 @@ const SalesHistory = () => {
                       </svg>
                     </div>
                   </div>
-                  <div className="ml-4">
-                    <p className="text-sm font-medium text-gray-600">Одобренные</p>
+                  <div className="ml-4 flex-1 min-w-0 overflow-hidden">
+                    <p className="text-sm font-medium text-gray-600 whitespace-normal break-words">Одобренные</p>
                     <p className="text-2xl font-bold text-gray-900">{stats.approvedSales}</p>
                   </div>
                 </div>
@@ -204,8 +205,8 @@ const SalesHistory = () => {
                       </svg>
                     </div>
                   </div>
-                  <div className="ml-4">
-                    <p className="text-sm font-medium text-gray-600">На проверке</p>
+                  <div className="ml-4 flex-1 min-w-0 overflow-hidden">
+                    <p className="text-sm font-medium text-gray-600 whitespace-normal break-words">На проверке</p>
                     <p className="text-2xl font-bold text-gray-900">{stats.pendingSales}</p>
                   </div>
                 </div>
@@ -220,8 +221,8 @@ const SalesHistory = () => {
                       </svg>
                     </div>
                   </div>
-                  <div className="ml-4">
-                    <p className="text-sm font-medium text-gray-600">Общая сумма</p>
+                  <div className="ml-4 flex-1 min-w-0 overflow-hidden">
+                    <p className="text-sm font-medium text-gray-600 whitespace-normal break-words">Общая сумма</p>
                     <p className="text-2xl font-bold text-gray-900">₽{stats.totalAmount?.toLocaleString()}</p>
                   </div>
                 </div>
@@ -236,8 +237,8 @@ const SalesHistory = () => {
                       </svg>
                     </div>
                   </div>
-                  <div className="ml-4">
-                    <p className="text-sm font-medium text-gray-600">Заработано баллов</p>
+                  <div className="ml-4 flex-1 min-w-0 overflow-hidden">
+                    <p className="text-sm font-medium text-gray-600 whitespace-normal break-words">Заработано баллов</p>
                     <p className="text-2xl font-bold text-gray-900">{stats.totalPoints?.toLocaleString() || 0}</p>
                   </div>
                 </div>

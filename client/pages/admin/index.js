@@ -25,7 +25,7 @@ const AdminDashboard = () => {
   useEffect(() => {
     const token = localStorage.getItem('token');
     if (!token) {
-      router.push('/admin/login');
+      router.push('/login');
       return;
     }
 
@@ -39,7 +39,7 @@ const AdminDashboard = () => {
       setUser(userData);
     } catch (error) {
       console.error('Ошибка при получении данных пользователя:', error);
-      router.push('/admin/login');
+      router.push('/login');
     }
   };
 
@@ -95,6 +95,13 @@ const AdminDashboard = () => {
     
     return false;
   };
+
+  // Админам и представителям бренда сразу показываем единый кабинет
+  useEffect(() => {
+    if (user && hasAdminAccess()) {
+      router.replace('/dashboard');
+    }
+  }, [user]);
 
   if (!hasAdminAccess()) {
     return (

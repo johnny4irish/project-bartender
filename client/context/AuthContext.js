@@ -69,10 +69,15 @@ export const AuthProvider = ({ children }) => {
     console.log('AuthContext: loadUser - начинаем загрузку пользователя')
     console.log('AuthContext: loadUser - localStorage.token:', localStorage.token)
     
-    if (localStorage.token) {
-      console.log('AuthContext: loadUser - устанавливаем токен из localStorage')
-      setAuthToken(localStorage.token)
+    // Если токена нет — не дергаем /api/auth/me, сразу сбрасываем состояние
+    if (!localStorage.token) {
+      console.log('AuthContext: loadUser - токен отсутствует, пропускаем запрос /api/auth/me')
+      dispatch({ type: 'AUTH_ERROR' })
+      return
     }
+
+    console.log('AuthContext: loadUser - устанавливаем токен из localStorage')
+    setAuthToken(localStorage.token)
 
     console.log('AuthContext: loadUser - текущие заголовки axios:', axios.defaults.headers.common)
 

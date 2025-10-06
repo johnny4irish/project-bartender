@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { useAuth } from '../../context/AuthContext'
 import axios from 'axios'
+import { API_BASE_URL } from '../../utils/api'
 import { toast } from 'react-toastify'
 import { useRouter } from 'next/router'
 
@@ -33,7 +34,7 @@ const PaymentsPage = () => {
 
   const fetchBalance = async () => {
     try {
-      const res = await axios.get('/api/payments/balance')
+      const res = await axios.get(`${API_BASE_URL}/api/payments/balance`)
       setBalance(res.data)
     } catch (error) {
       console.error('Ошибка загрузки баланса:', error)
@@ -53,7 +54,7 @@ const PaymentsPage = () => {
       if (filterType) params.append('type', filterType)
       if (filterStatus) params.append('status', filterStatus)
 
-      const res = await axios.get(`/api/payments/transactions?${params}`)
+      const res = await axios.get(`${API_BASE_URL}/api/payments/transactions?${params}`)
       setTransactions(res.data.transactions)
       setTransactionStats(res.data.stats)
       setTotalPages(res.data.pagination.pages)

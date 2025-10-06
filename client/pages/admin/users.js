@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import Link from 'next/link';
 import Button from '../../components/ui/Button';
-import { authAPI, adminAPI } from '../../utils/api';
+import { authAPI, adminAPI, API_BASE_URL } from '../../utils/api';
 
 const AdminUsers = () => {
   const router = useRouter();
@@ -13,11 +13,12 @@ const AdminUsers = () => {
   const [editingUser, setEditingUser] = useState(null);
   const [showEditModal, setShowEditModal] = useState(false);
   const [roles, setRoles] = useState([]);
+  const [leaderboardFilter, setLeaderboardFilter] = useState('all');
 
   const fetchUsers = async () => {
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch('/api/admin/users', {
+      const response = await fetch(`${API_BASE_URL}/api/admin/users`, {
         headers: {
           'x-auth-token': token,
           'Content-Type': 'application/json'
@@ -39,7 +40,7 @@ const AdminUsers = () => {
   const fetchCurrentUser = async () => {
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch('/api/auth/me', {
+      const response = await fetch(`${API_BASE_URL}/api/auth/me`, {
         headers: {
           'x-auth-token': token,
           'Content-Type': 'application/json'
@@ -61,7 +62,7 @@ const AdminUsers = () => {
     try {
       const token = localStorage.getItem('token');
       // Пытаемся получить полный список ролей (для админа)
-      let response = await fetch('/api/admin/roles', {
+      let response = await fetch(`${API_BASE_URL}/api/admin/roles`, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
@@ -70,7 +71,7 @@ const AdminUsers = () => {
 
       // Если нет прав (403/401), используем публичный список активных ролей
       if (response.status === 403 || response.status === 401) {
-        response = await fetch('/api/data/roles');
+        response = await fetch(`${API_BASE_URL}/api/data/roles`);
       }
 
       if (!response.ok) {
@@ -85,7 +86,7 @@ const AdminUsers = () => {
       console.warn('Ошибка загрузки ролей:', err);
       // Дополнительный фолбэк на публичный список
       try {
-        const resp = await fetch('/api/data/roles');
+        const resp = await fetch(`${API_BASE_URL}/api/data/roles`);
         if (resp.ok) {
           const data = await resp.json();
           setRoles(Array.isArray(data) ? data : []);
@@ -97,7 +98,7 @@ const AdminUsers = () => {
   useEffect(() => {
     const token = localStorage.getItem('token');
     if (!token) {
-      router.push('/admin/login');
+      router.push('/login');
       return;
     }
 
@@ -123,7 +124,7 @@ const AdminUsers = () => {
   const handleSaveUser = async (updatedUser) => {
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch(`/api/admin/users/${updatedUser._id}`, {
+      const response = await fetch(`${API_BASE_URL}/api/admin/users/${updatedUser._id}`, {
         method: 'PUT',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -150,7 +151,7 @@ const AdminUsers = () => {
       const token = localStorage.getItem('token');
       const isActive = !currentIsActive; // Инвертируем текущий статус
       
-      const response = await fetch(`/api/admin/users/${userId}/status`, {
+      const response = await fetch(`${API_BASE_URL}/api/admin/users/${userId}/status`, {
         method: 'PUT',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -177,7 +178,7 @@ const AdminUsers = () => {
 
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch(`/api/admin/users/${userId}`, {
+      const response = await fetch(`${API_BASE_URL}/api/admin/users/${userId}`, {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -345,13 +346,38 @@ const AdminUsers = () => {
           <div className="px-4 sm:px-6 py-4 border-b border-gray-200">
             <h2 className="text-lg font-semibold text-gray-900">Список пользователей</h2>
             <p className="text-gray-600 text-sm mt-1">Всего пользователей: {users.length}</p>
+            {/* Фильтр участия в лидерборде */}
+            <div className="mt-3 flex items-center gap-2">
+              <label className="text-sm text-gray-700">Лидерборд:</label>
+              <select
+                value={leaderboardFilter}
+                onChange={(e) => setLeaderboardFilter(e.target.value)}
+                className="px-3 py-2 border border-gray-300 bg-white rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+              >
+                <option value="all">Все пользователи</option>
+                <option value="included">Включены (isActive !== false)</option>
+                <option value="excluded">Исключены (isActive === false)</option>
+              </select>
+              <span
+                className="text-xs text-gray-500"
+                title="Логика: в лидерборде исключаются только пользователи с isActive === false. Остальные (isActive: true или без поля) включены."
+              >
+                ℹ️ Подсказка по логике
+              </span>
+            </div>
           </div>
           
           {/* Mobile view */}
           <div className="block sm:hidden">
             <div className="divide-y divide-gray-200">
-              {users.map((userItem) => (
-                <div key={userItem._id} className="p-4 space-y-3">
+              {(users || [])
+                .filter((u) => {
+                  if (leaderboardFilter === 'included') return u.isActive !== false;
+                  if (leaderboardFilter === 'excluded') return u.isActive === false;
+                  return true;
+                })
+                .map((userItem) => (
+                  <div key={userItem._id} className="p-4 space-y-3">
                   <div className="flex items-center space-x-3">
                     <div className="flex-shrink-0 h-10 w-10">
                       <div className="h-10 w-10 rounded-full bg-gray-200 flex items-center justify-center">
@@ -440,6 +466,9 @@ const AdminUsers = () => {
                     Статус
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Лидерборд (isActive)
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Дата регистрации
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -448,7 +477,13 @@ const AdminUsers = () => {
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {users.map((userItem) => (
+                {(users || [])
+                  .filter((u) => {
+                    if (leaderboardFilter === 'included') return u.isActive !== false;
+                    if (leaderboardFilter === 'excluded') return u.isActive === false;
+                    return true;
+                  })
+                  .map((userItem) => (
                   <tr key={userItem._id} className="hover:bg-gray-50">
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex items-center">
@@ -489,9 +524,16 @@ const AdminUsers = () => {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                        userItem.isActive ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                        userItem.isActive !== false ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
                       }`}>
-                        {userItem.isActive ? 'Активен' : 'Заблокирован'}
+                        {userItem.isActive !== false ? 'Активен' : 'Заблокирован'}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                        userItem.isActive !== false ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                      }`}>
+                        {userItem.isActive !== false ? 'Включен' : 'Исключен'}
                       </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">

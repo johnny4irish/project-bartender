@@ -1,0 +1,648 @@
+import { useState, useEffect } from 'react';
+import { useRouter } from 'next/router';
+import Link from 'next/link';
+import Button from '../../components/ui/Button';
+import { authAPI, adminAPI, API_BASE_URL } from '../../utils/api';
+
+const AdminUsers = () => {
+  const router = useRouter();
+  const [user, setUser] = useState(null);
+  const [users, setUsers] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [editingUser, setEditingUser] = useState(null);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [roles, setRoles] = useState([]);
+
+  const fetchUsers = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`${API_BASE_URL}/api/admin/users`, {
+        headers: {
+          'x-auth-token': token,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error('Ошибка загрузки пользователей');
+      }
+
+      const data = await response.json();
+      setUsers(data.users || []);
+    } catch (error) {
+      console.error('Ошибка загрузки пользователей:', error);
+      setError('Ошибка загрузки пользователей');
+    }
+  };
+
+  const fetchCurrentUser = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`${API_BASE_URL}/api/auth/me`, {
+        headers: {
+          'x-auth-token': token,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error('Ошибка загрузки данных пользователя');
+      }
+
+      const userData = await response.json();
+      setUser(userData);
+    } catch (error) {
+      console.error('Ошибка загрузки данных пользователя:', error);
+    }
+  };
+
+  const fetchRoles = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      // Пытаемся получить полный список ролей (для админа)
+      let response = await fetch(`${API_BASE_URL}/api/admin/roles`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      // Если нет прав (403/401), используем публичный список активных ролей
+      if (response.status === 403 || response.status === 401) {
+        response = await fetch(`${API_BASE_URL}/api/data/roles`);
+      }
+
+      if (!response.ok) {
+        console.warn('Не удалось загрузить роли, используем пустой список');
+        setRoles([]);
+        return;
+      }
+
+      const data = await response.json();
+      setRoles(Array.isArray(data) ? data : []);
+    } catch (err) {
+      console.warn('Ошибка загрузки ролей:', err);
+      // Дополнительный фолбэк на публичный список
+      try {
+        const resp = await fetch(`${API_BASE_URL}/api/data/roles`);
+        if (resp.ok) {
+          const data = await resp.json();
+          setRoles(Array.isArray(data) ? data : []);
+        }
+      } catch (_) {}
+    }
+  };
+
+  useEffect(() => {
+    const token = localStorage.getItem('token');
+    if (!token) {
+      router.push('/admin/login');
+      return;
+    }
+
+    const loadData = async () => {
+      setIsLoading(true);
+      await Promise.all([fetchCurrentUser(), fetchUsers(), fetchRoles()]);
+      setIsLoading(false);
+    };
+
+    loadData();
+  }, [router]);
+
+  const handleLogout = () => {
+    localStorage.removeItem('token');
+    router.push('/');
+  };
+
+  const handleEditUser = (user) => {
+    setEditingUser(user);
+    setShowEditModal(true);
+  };
+
+  const handleSaveUser = async (updatedUser) => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`${API_BASE_URL}/api/admin/users/${updatedUser._id}`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(updatedUser)
+      });
+
+      if (!response.ok) {
+        throw new Error('Ошибка обновления пользователя');
+      }
+
+      await fetchUsers();
+      setShowEditModal(false);
+      setEditingUser(null);
+    } catch (error) {
+      console.error('Ошибка обновления пользователя:', error);
+      setError('Ошибка обновления пользователя');
+    }
+  };
+
+  const handleToggleUserStatus = async (userId, currentIsActive) => {
+    try {
+      const token = localStorage.getItem('token');
+      const isActive = !currentIsActive; // Инвертируем текущий статус
+      
+      const response = await fetch(`${API_BASE_URL}/api/admin/users/${userId}/status`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ isActive })
+      });
+
+      if (!response.ok) {
+        throw new Error('Ошибка изменения статуса пользователя');
+      }
+
+      await fetchUsers();
+    } catch (error) {
+      console.error('Ошибка изменения статуса пользователя:', error);
+      setError('Ошибка изменения статуса пользователя');
+    }
+  };
+
+  const handleDeleteUser = async (userId) => {
+    if (!confirm('Вы уверены, что хотите удалить этого пользователя?')) {
+      return;
+    }
+
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`${API_BASE_URL}/api/admin/users/${userId}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error('Ошибка удаления пользователя');
+      }
+
+      await fetchUsers();
+    } catch (error) {
+      console.error('Ошибка удаления пользователя:', error);
+      setError('Ошибка удаления пользователя');
+    }
+  };
+
+  const getRoleText = (role) => {
+    // Если роль - строка
+    if (typeof role === 'string') {
+      // Если это ObjectId, пытаемся найти роль в загруженном списке
+      if (role.length === 24 && Array.isArray(roles) && roles.length > 0) {
+        const found = roles.find(r => r._id === role);
+        if (found) return found.displayName || found.name || 'Неизвестная роль';
+      }
+      switch (role) {
+        case 'admin': return 'Администратор';
+        case 'brand_representative': return 'Производитель/Дистрибьютор';
+        case 'bar_manager': return 'Менеджер бара';
+        case 'test_bartender': return 'Тест-бармен';
+        case 'bartender': return 'Бармен';
+        default: return role;
+      }
+    }
+    
+    // Если роль - объект
+    if (role && typeof role === 'object') {
+      // Если это объект роли с _id — попробуем найти в списке ролей
+      if ((role._id || role.toString) && Array.isArray(roles) && roles.length > 0) {
+        const roleId = role._id || role.toString();
+        if (typeof roleId === 'string' && roleId.length === 24) {
+          const found = roles.find(r => r._id === roleId);
+          if (found) return found.displayName || found.name || 'Неизвестная роль';
+        }
+      }
+      const roleName = role.name || role.displayName;
+      switch (roleName) {
+        case 'admin': return 'Администратор';
+        case 'brand_representative': return 'Производитель/Дистрибьютор';
+        case 'bar_manager': return 'Менеджер бара';
+        case 'test_bartender': return 'Тест-бармен';
+        case 'bartender': return 'Бармен';
+        default: return roleName || 'Неизвестная роль';
+      }
+    }
+    
+    return 'Неизвестная роль';
+  };
+
+  const getRoleNameValue = (role) => {
+    if (!role) return '';
+    if (typeof role === 'string') {
+      // Если это ObjectId — сопоставляем через загруженные роли
+      if (role.length === 24 && Array.isArray(roles) && roles.length > 0) {
+        const found = roles.find(r => r._id === role);
+        return found ? (found.name || '') : '';
+      }
+      return role;
+    }
+    // Если это объект роли
+    if (role && typeof role === 'object') {
+      if ((role._id || role.toString) && Array.isArray(roles) && roles.length > 0) {
+        const roleId = role._id || role.toString();
+        if (typeof roleId === 'string' && roleId.length === 24) {
+          const found = roles.find(r => r._id === roleId);
+          if (found) return found.name || '';
+        }
+      }
+      return role.name || '';
+    }
+    return '';
+  };
+
+  const getRoleColor = (role) => {
+    switch (role) {
+      case 'admin': return 'text-gray-900';
+      case 'bartender': return 'text-gray-900';
+      default: return 'text-gray-600';
+    }
+  };
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
+      </div>
+    );
+  }
+
+  const hasAdminAccess = () => {
+    if (!user) return false;
+    
+    // Если роль - строка
+    if (typeof user.role === 'string') {
+      return user.role === 'admin' || user.role === 'brand_representative';
+    }
+    
+    // Если роль - объект с полем name
+    if (user.role && typeof user.role === 'object' && user.role.name) {
+      return user.role.name === 'admin' || user.role.name === 'brand_representative';
+    }
+    
+    return false;
+  };
+
+  if (!hasAdminAccess()) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="text-center">
+          <h1 className="text-2xl font-bold text-gray-900 mb-4">Доступ запрещен</h1>
+          <p className="text-gray-600 mb-4">У вас нет прав для доступа к админ-панели</p>
+          <Button onClick={() => router.push('/')}>
+            На главную
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-gray-50">
+      {/* Header */}
+      <header className="bg-white border-b border-gray-200 sticky top-0 z-50 shadow-sm">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center py-4 space-y-2 sm:space-y-0">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center space-y-2 sm:space-y-0 sm:space-x-4">
+              <h1 className="text-lg sm:text-xl font-bold text-gray-900">Управление пользователями</h1>
+              <Link href="/admin" className="text-gray-600 hover:text-gray-900 text-sm">
+                ← К админ-панели
+              </Link>
+            </div>
+            <div className="flex flex-col sm:flex-row items-start sm:items-center space-y-2 sm:space-y-0 sm:space-x-4 w-full sm:w-auto">
+              <div className="text-left sm:text-right">
+                <p className="text-gray-900 font-medium text-sm sm:text-base">Привет, {user.name}!</p>
+                <p className="text-gray-600 text-xs sm:text-sm">{getRoleText(user.role)}</p>
+              </div>
+              <Button variant="secondary" size="sm" onClick={handleLogout} className="w-full sm:w-auto">
+                Выйти
+              </Button>
+            </div>
+          </div>
+        </div>
+      </header>
+
+      {/* Main Content */}
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-8">
+        {error && (
+          <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg">
+            <p className="text-red-800">{error}</p>
+          </div>
+        )}
+
+        <div className="bg-white rounded-lg border border-gray-200 shadow-sm">
+          <div className="px-4 sm:px-6 py-4 border-b border-gray-200">
+            <h2 className="text-lg font-semibold text-gray-900">Список пользователей</h2>
+            <p className="text-gray-600 text-sm mt-1">Всего пользователей: {users.length}</p>
+          </div>
+          
+          {/* Mobile view */}
+          <div className="block sm:hidden">
+            <div className="divide-y divide-gray-200">
+              {users.map((userItem) => (
+                <div key={userItem._id} className="p-4 space-y-3">
+                  <div className="flex items-center space-x-3">
+                    <div className="flex-shrink-0 h-10 w-10">
+                      <div className="h-10 w-10 rounded-full bg-gray-200 flex items-center justify-center">
+                        <span className="text-sm font-medium text-gray-600">
+                          {userItem.name?.charAt(0)?.toUpperCase() || 'U'}
+                        </span>
+                      </div>
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-gray-900 truncate">{userItem.name}</p>
+                      <p className="text-sm text-gray-500 truncate">{userItem.email}</p>
+                    </div>
+                  </div>
+                  
+                  <div className="grid grid-cols-2 gap-4 text-sm">
+                    <div>
+                      <span className="text-gray-500">Роль:</span>
+                      <p className="font-medium text-gray-900">{getRoleText(userItem.role)}</p>
+                    </div>
+                    <div>
+                      <span className="text-gray-500">Баллы:</span>
+                      <p className="font-medium text-gray-900">{userItem.points || 0}</p>
+                    </div>
+                    <div>
+                      <span className="text-gray-500">Статус:</span>
+                      <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                        userItem.isActive !== false ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                      }`}>
+                        {userItem.isActive !== false ? 'Активен' : 'Заблокирован'}
+                      </span>
+                    </div>
+                    <div>
+                      <span className="text-gray-500">Регистрация:</span>
+                      <p className="text-gray-900 text-xs">
+                        {new Date(userItem.createdAt).toLocaleDateString('ru-RU')}
+                      </p>
+                    </div>
+                  </div>
+                  
+                  <div className="flex flex-wrap gap-2 pt-2">
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      onClick={() => handleEditUser(userItem)}
+                      className="text-xs"
+                    >
+                      Редактировать
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant={userItem.isActive !== false ? "secondary" : "primary"}
+                      onClick={() => handleToggleUserStatus(userItem._id, userItem.isActive)}
+                      className="text-xs"
+                    >
+                      {userItem.isActive !== false ? 'Заблокировать' : 'Разблокировать'}
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="danger"
+                      onClick={() => handleDeleteUser(userItem._id)}
+                      className="text-xs"
+                    >
+                      Удалить
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+          
+          {/* Desktop view */}
+          <div className="hidden sm:block overflow-x-auto">
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Пользователь
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Роль
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Баллы
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Статус
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Дата регистрации
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Действия
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {users.map((userItem) => (
+                  <tr key={userItem._id} className="hover:bg-gray-50">
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="flex items-center">
+                        <div className="flex-shrink-0 h-10 w-10">
+                          <div className="h-10 w-10 rounded-full bg-gray-300 flex items-center justify-center">
+                            <span className="text-sm font-medium text-gray-700">
+                              {userItem.name?.charAt(0)?.toUpperCase() || 'U'}
+                            </span>
+                          </div>
+                        </div>
+                        <div className="ml-4">
+                          <div className="text-sm font-medium text-gray-900">{userItem.name}</div>
+                          <div className="text-sm text-gray-500">{userItem.email}</div>
+                          {userItem.bar && (
+                            <div className="text-xs text-gray-400">{userItem.bar}, {userItem.city}</div>
+                          )}
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      {(() => {
+                        const roleName = getRoleNameValue(userItem.role);
+                        const badgeClass =
+                          roleName === 'admin' ? 'bg-purple-100 text-purple-800' :
+                          roleName === 'brand_representative' ? 'bg-blue-100 text-blue-800' :
+                          roleName === 'bar_manager' ? 'bg-yellow-100 text-yellow-800' :
+                          roleName === 'test_bartender' ? 'bg-gray-100 text-gray-800' :
+                          'bg-green-100 text-green-800';
+                        return (
+                          <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${badgeClass}`}>
+                            {getRoleText(userItem.role)}
+                          </span>
+                        );
+                      })()}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      {userItem.points || 0}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                        userItem.isActive ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                      }`}>
+                        {userItem.isActive ? 'Активен' : 'Заблокирован'}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      {new Date(userItem.createdAt).toLocaleDateString('ru-RU')}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2">
+                      <button
+                        onClick={() => handleEditUser(userItem)}
+                        className="text-indigo-600 hover:text-indigo-900"
+                      >
+                        Редактировать
+                      </button>
+                      <button
+                        onClick={() => handleToggleUserStatus(userItem._id, userItem.isActive)}
+                        className={userItem.isActive ? 'text-red-600 hover:text-red-900' : 'text-green-600 hover:text-green-900'}
+                      >
+                        {userItem.isActive ? 'Заблокировать' : 'Разблокировать'}
+                      </button>
+                      {userItem.role !== 'admin' && (
+                        <button
+                          onClick={() => handleDeleteUser(userItem._id)}
+                          className="text-red-600 hover:text-red-900"
+                        >
+                          Удалить
+                        </button>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          {users.length === 0 && (
+            <div className="text-center py-12">
+              <p className="text-gray-500">Пользователи не найдены</p>
+            </div>
+          )}
+        </div>
+
+        {/* Edit User Modal */}
+        {showEditModal && editingUser && (
+          <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+            <div className="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+              <div className="mt-3">
+                <h3 className="text-lg font-medium text-gray-900 mb-4">Редактировать пользователя</h3>
+                <form onSubmit={(e) => {
+                  e.preventDefault();
+                  handleSaveUser(editingUser);
+                }}>
+                  <div className="mb-4">
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Имя
+                    </label>
+                    <input
+                      type="text"
+                      value={editingUser.name}
+                      onChange={(e) => setEditingUser({...editingUser, name: e.target.value})}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      required
+                    />
+                  </div>
+                  <div className="mb-4">
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Email
+                    </label>
+                    <input
+                      type="email"
+                      value={editingUser.email}
+                      onChange={(e) => setEditingUser({...editingUser, email: e.target.value})}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      required
+                    />
+                  </div>
+                  <div className="mb-4">
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Роль
+                    </label>
+                    <select
+                      value={typeof editingUser.role === 'string' ? editingUser.role : (editingUser.role?.name || '')}
+                      onChange={(e) => setEditingUser({ ...editingUser, role: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    >
+                      {roles.length > 0 ? (
+                        roles.map((r) => (
+                          <option key={r._id || r.name} value={r.name}>
+                            {r.displayName || getRoleText(r.name)}
+                          </option>
+                        ))
+                      ) : (
+                        <>
+                          <option value="bartender">Бармен</option>
+                          <option value="brand_representative">Производитель/Дистрибьютор</option>
+                          <option value="bar_manager">Менеджер бара</option>
+                          <option value="admin">Администратор</option>
+                        </>
+                      )}
+                    </select>
+                  </div>
+                  {editingUser.role === 'bartender' && (
+                    <>
+                      <div className="mb-4">
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          Бар
+                        </label>
+                        <input
+                          type="text"
+                          value={editingUser.bar || ''}
+                          onChange={(e) => setEditingUser({...editingUser, bar: e.target.value})}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        />
+                      </div>
+                      <div className="mb-4">
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          Город
+                        </label>
+                        <input
+                          type="text"
+                          value={editingUser.city || ''}
+                          onChange={(e) => setEditingUser({...editingUser, city: e.target.value})}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        />
+                      </div>
+                    </>
+                  )}
+                  <div className="flex justify-end space-x-3">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowEditModal(false);
+                        setEditingUser(null);
+                      }}
+                      className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 border border-gray-300 rounded-md hover:bg-gray-200"
+                    >
+                      Отмена
+                    </button>
+                    <button
+                      type="submit"
+                      className="px-4 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-md hover:bg-blue-700"
+                    >
+                      Сохранить
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          </div>
+        )}
+      </main>
+    </div>
+  );
+};
+
+export default AdminUsers;

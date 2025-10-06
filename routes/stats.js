@@ -7,11 +7,11 @@ const Prize = getModel('Prize')
 const auth = require('../middleware/auth');
 const { authorize } = require('../middleware/auth');
 
-// Get the bartender role ObjectId
-const getBartenderRoleId = async () => {
+// Get bartender role ObjectIds (supports both 'bartender' and 'test_bartender')
+const getBartenderRoleIds = async () => {
   const Role = getModel('Role');
-  const bartenderRole = await Role.findOne({ name: 'test_bartender' });
-  return bartenderRole ? bartenderRole._id : null;
+  const roles = await Role.find({ name: { $in: ['bartender', 'test_bartender'] } });
+  return roles.map(r => r._id);
 };
 
 // @route   GET /api/stats
@@ -22,12 +22,25 @@ router.get('/', async (req, res) => {
     // Если MongoDB не подключена, быстро возвращаем безопасные значения,
     // чтобы избежать долгих таймаутов и зависаний фронтенда
     if (!checkConnection()) {
-      return res.json({
-        totalUsers: 0,
-        activeUsers: 0,
-        totalPoints: 0,
-        totalPrizes: 0
-      });
+      // Фолбэк к локальным данным из /data
+      try {
+        const fs = require('fs')
+        const path = require('path')
+        const usersPath = path.join(__dirname, '..', 'data', 'users.json')
+        const prizesPath = path.join(__dirname, '..', 'data', 'prizes.json')
+        const usersRaw = fs.readFileSync(usersPath, 'utf8')
+        const prizesRaw = fs.readFileSync(prizesPath, 'utf8')
+        const users = JSON.parse(usersRaw)
+        const prizes = JSON.parse(prizesRaw)
+        const totalUsers = Array.isArray(users) ? users.length : 0
+        const activeUsers = Array.isArray(users) ? users.filter(u => (u.points || 0) > 0).length : 0
+        const totalPoints = Array.isArray(users) ? users.reduce((s, u) => s + (u.points || 0), 0) : 0
+        const totalPrizes = Array.isArray(prizes) ? prizes.length : 0
+        return res.json({ totalUsers, activeUsers, totalPoints, totalPrizes })
+      } catch (e) {
+        console.warn('Fallback stats load failed:', e.message)
+        return res.json({ totalUsers: 0, activeUsers: 0, totalPoints: 0, totalPrizes: 0 })
+      }
     }
 
     // Инициализируем значения по умолчанию
